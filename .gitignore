@@ -1,0 +1,13 @@
+*.log
+.DS_Store
+__pycache__/
+.env*
+venv/
+.envrc
+node_modules/
+dist/
+build/
+coverage/
+.idea/
+.vscode/
+*.sqlite
