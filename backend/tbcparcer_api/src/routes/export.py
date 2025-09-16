@@ -206,36 +206,46 @@ def export_to_csv():
         
         # Получаем транзакции
         transactions = Transaction.get_user_transactions(user.id)
-        
+
         if not transactions:
             return jsonify({'error': 'Нет данных для экспорта'}), 404
-        
+
         # Создаем CSV
         import csv
         import io
-        
+
         output = io.StringIO()
         writer = csv.writer(output)
-        
+
         # Заголовки
         headers = [
             'Дата и время', 'Тип операции', 'Сумма', 'Валюта',
             'Номер карты', 'Описание', 'Баланс', 'Оператор', 'Приложение'
         ]
         writer.writerow(headers)
-        
+
         # Данные
         for transaction in transactions:
+            transaction_dict = transaction.to_dict()
+
+            date_time_str = ''
+            if transaction_dict.get('date_time'):
+                try:
+                    dt = datetime.fromisoformat(transaction_dict['date_time'].replace('Z', '+00:00'))
+                    date_time_str = dt.strftime('%d.%m.%Y %H:%M')
+                except ValueError:
+                    date_time_str = transaction_dict['date_time']
+
             row = [
-                transaction.date_time,
-                excel_service.operation_types.get(transaction.operation_type, transaction.operation_type),
-                transaction.amount,
-                transaction.currency,
-                transaction.card_number,
-                transaction.description,
-                transaction.balance,
-                transaction.operator_name,
-                transaction.operator_description
+                date_time_str,
+                excel_service.operation_types.get(transaction_dict.get('operation_type'), transaction_dict.get('operation_type')),
+                transaction_dict.get('amount'),
+                transaction_dict.get('currency'),
+                transaction_dict.get('card_number'),
+                transaction_dict.get('description'),
+                transaction_dict.get('balance'),
+                transaction_dict.get('operator_name'),
+                transaction_dict.get('operator_description')
             ]
             writer.writerow(row)
         

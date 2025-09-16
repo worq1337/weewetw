@@ -41,7 +41,12 @@ class Operator(db.Model):
         filtered_global = [op for op in global_operators if op.name not in personal_names]
         
         return personal_operators + filtered_global
-    
+
+    @staticmethod
+    def get_global_operators():
+        """Получить только глобальные операторы."""
+        return Operator.query.filter_by(user_id=None).all()
+
     @staticmethod
     def find_operator_by_description(description_text, user_id=None):
         """Найти оператора по тексту описания"""

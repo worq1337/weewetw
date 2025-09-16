@@ -1,12 +1,60 @@
-from flask import Blueprint, request, jsonify
-from src.services.ai_parser import AIParsingService
+from datetime import datetime
+from typing import List, Optional
+
+from flask import Blueprint, jsonify, request
+
 from src.models.operator import Operator
 from src.models.transaction import Transaction
 from src.models.user import User, db
-import hashlib
+from src.services.ai_parser import AIParsingService
 
 ai_parsing_bp = Blueprint('ai_parsing', __name__)
-# ai_service = AIParsingService()  # Временно отключено
+_ai_service: Optional[AIParsingService] = None
+
+
+def _get_ai_service() -> AIParsingService:
+    """Ленивая инициализация сервиса парсинга."""
+    global _ai_service
+    if _ai_service is None:
+        _ai_service = AIParsingService()
+    return _ai_service
+
+
+def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
+    """Преобразовать строку с датой в объект datetime."""
+    if not value:
+        return None
+
+    normalized = value.replace('T', ' ').replace('Z', '+00:00')
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        pass
+
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%d.%m.%Y %H:%M:%S', '%Y-%m-%d %H:%M'):
+        try:
+            return datetime.strptime(normalized, fmt)
+        except ValueError:
+            continue
+
+    return None
+
+
+def _to_float(value) -> Optional[float]:
+    """Безопасно конвертировать значение в float."""
+    if value in (None, ''):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _load_operators_for_user(user: Optional[User]) -> List[Operator]:
+    """Получить список операторов для пользователя или глобальные."""
+    if user:
+        return Operator.get_operators_for_user(user.id)
+    return Operator.get_global_operators()
 
 @ai_parsing_bp.route('/parse', methods=['POST'])
 def parse_receipt():
@@ -23,24 +71,30 @@ def parse_receipt():
         if not receipt_text.strip():
             return jsonify({'error': 'Пустой текст чека'}), 400
         
+        try:
+            ai_service = _get_ai_service()
+        except RuntimeError as config_error:
+            return jsonify({'error': str(config_error)}), 503
+
         # Парсим чек через AI
         parsed_data = ai_service.parse_receipt(receipt_text)
-        
+
         if 'error' in parsed_data:
             return jsonify(parsed_data), 400
-        
+
         # Получаем операторов для обогащения данных
+        user = None
         if telegram_id:
-            operators = Operator.get_user_operators(telegram_id)
-        else:
-            operators = Operator.get_global_operators()
-        
+            try:
+                user = User.query.filter_by(telegram_id=int(telegram_id)).first()
+            except (TypeError, ValueError):
+                return jsonify({'error': 'Некорректный telegram_id'}), 400
+
+        operators = _load_operators_for_user(user)
+
         # Обогащаем данные информацией об операторе
-        enhanced_data = ai_service.enhance_with_operator_info(
-            parsed_data, 
-            [op.to_dict() for op in operators]
-        )
-        
+        enhanced_data = ai_service.enhance_with_operator_info(parsed_data, operators)
+
         return jsonify({
             'success': True,
             'parsed_data': enhanced_data
@@ -64,63 +118,85 @@ def parse_and_save_receipt():
         if not receipt_text.strip():
             return jsonify({'error': 'Пустой текст чека'}), 400
         
+        try:
+            telegram_id_int = int(telegram_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Некорректный telegram_id'}), 400
+
         # Получаем или создаем пользователя
-        user = User.get_by_telegram_id(telegram_id)
-        if not user:
-            user = User.create(telegram_id=telegram_id)
-        
-        # Проверяем на дубликат по хешу
-        text_hash = hashlib.md5(receipt_text.encode()).hexdigest()
+        user = User.get_or_create_user(telegram_id_int, data.get('username'))
+
+        # Проверяем на дубликат по исходному тексту
         existing_transaction = Transaction.query.filter_by(
             user_id=user.id,
-            text_hash=text_hash
+            raw_text=receipt_text
         ).first()
-        
+
         if existing_transaction:
             return jsonify({'error': 'Duplicate transaction detected'}), 409
-        
+
         # Парсим чек через AI
+        try:
+            ai_service = _get_ai_service()
+        except RuntimeError as config_error:
+            return jsonify({'error': str(config_error)}), 503
+
         parsed_data = ai_service.parse_receipt(receipt_text)
-        
+
         if 'error' in parsed_data:
             return jsonify(parsed_data), 400
-        
+
         # Получаем операторов для обогащения данных
-        operators = Operator.get_user_operators(telegram_id)
-        
+        operators = _load_operators_for_user(user)
+
         # Обогащаем данные информацией об операторе
-        enhanced_data = ai_service.enhance_with_operator_info(
-            parsed_data, 
-            [op.to_dict() for op in operators]
+        enhanced_data = ai_service.enhance_with_operator_info(parsed_data, operators)
+
+        parsed_datetime = _parse_datetime(enhanced_data.get('date_time'))
+        if not parsed_datetime:
+            return jsonify({'error': 'Неверный формат даты операции'}), 400
+
+        amount = _to_float(enhanced_data.get('amount'))
+        if amount is None:
+            return jsonify({'error': 'Неверный формат суммы операции'}), 400
+
+        balance = _to_float(enhanced_data.get('balance'))
+
+        operator_id = enhanced_data.get('operator_id')
+        if not operator_id and enhanced_data.get('description'):
+            operator = Operator.find_operator_by_description(
+                enhanced_data['description'],
+                user.id
+            )
+            operator_id = operator.id if operator else None
+
+        transaction = Transaction(
+            user_id=user.id,
+            date_time=parsed_datetime,
+            operation_type=enhanced_data.get('operation_type', 'payment'),
+            amount=amount,
+            currency=enhanced_data.get('currency', 'UZS'),
+            card_number=enhanced_data.get('card_number'),
+            description=enhanced_data.get('description'),
+            balance=balance,
+            operator_id=operator_id,
+            raw_text=receipt_text
         )
-        
-        # Создаем транзакцию
-        transaction_data = {
-            'user_id': user.id,
-            'date_time': enhanced_data.get('date_time'),
-            'operation_type': enhanced_data.get('operation_type'),
-            'amount': enhanced_data.get('amount'),
-            'currency': enhanced_data.get('currency', 'UZS'),
-            'card_number': enhanced_data.get('card_number'),
-            'description': enhanced_data.get('description'),
-            'balance': enhanced_data.get('balance'),
-            'operator_name': enhanced_data.get('operator_name', enhanced_data.get('operator')),
-            'operator_description': enhanced_data.get('operator_description'),
-            'raw_text': receipt_text,
-            'text_hash': text_hash,
-            'ai_model': enhanced_data.get('ai_model', 'gpt-4o-mini'),
-            'parsed_at': enhanced_data.get('parsed_at')
-        }
-        
-        transaction = Transaction.create(**transaction_data)
-        
+
+        db.session.add(transaction)
+        db.session.commit()
+
+        transaction_dict = transaction.to_dict()
+        transaction_dict['data_source'] = 'AI Parser'
+
         return jsonify({
             'success': True,
-            'transaction': transaction.to_dict(),
+            'transaction': transaction_dict,
             'parsed_data': enhanced_data
         })
     
     except Exception as e:
+        db.session.rollback()
         return jsonify({'error': f'Ошибка при парсинге и сохранении: {str(e)}'}), 500
 
 @ai_parsing_bp.route('/batch-parse', methods=['POST'])
@@ -141,22 +217,28 @@ def batch_parse_receipts():
         if len(receipts_list) > 50:  # Ограничение на количество
             return jsonify({'error': 'Максимум 50 чеков за раз'}), 400
         
-        # Получаем операторов для обогащения данных
+        user = None
         if telegram_id:
-            operators = Operator.get_user_operators(telegram_id)
-        else:
-            operators = Operator.get_global_operators()
-        
-        operators_dict = [op.to_dict() for op in operators]
-        
+            try:
+                user = User.query.filter_by(telegram_id=int(telegram_id)).first()
+            except (TypeError, ValueError):
+                return jsonify({'error': 'Некорректный telegram_id'}), 400
+
+        operators = _load_operators_for_user(user)
+
         # Пакетная обработка
+        try:
+            ai_service = _get_ai_service()
+        except RuntimeError as config_error:
+            return jsonify({'error': str(config_error)}), 503
+
         results = ai_service.batch_parse_receipts(receipts_list)
-        
+
         # Обогащаем каждый результат
         enhanced_results = []
         for result in results:
             if 'error' not in result:
-                enhanced_result = ai_service.enhance_with_operator_info(result, operators_dict)
+                enhanced_result = ai_service.enhance_with_operator_info(result, operators)
                 enhanced_results.append(enhanced_result)
             else:
                 enhanced_results.append(result)
@@ -183,6 +265,11 @@ def validate_parsed_data():
         
         parsed_data = data['parsed_data']
         
+        try:
+            ai_service = _get_ai_service()
+        except RuntimeError as config_error:
+            return jsonify({'error': str(config_error)}), 503
+
         # Валидируем данные
         validation_result = ai_service.validate_receipt_data(parsed_data)
         

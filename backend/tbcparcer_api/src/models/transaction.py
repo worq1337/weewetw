@@ -42,7 +42,9 @@ class Transaction(db.Model):
             'operator_description': self.operator.description if self.operator else None,
             'raw_text': self.raw_text,
             'is_deleted': self.is_deleted,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'data_source': 'API',
+            'category': None
         }
 
     @staticmethod

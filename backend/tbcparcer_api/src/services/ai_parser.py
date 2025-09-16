@@ -1,15 +1,22 @@
 import json
-import openai
 import os
-from typing import Dict, Optional
 from datetime import datetime
+from typing import Dict, Optional, Sequence
+
+import openai
 
 class AIParsingService:
-    def __init__(self):
-        self.client = openai.OpenAI(
-            api_key=os.getenv('OPENAI_API_KEY'),
-            base_url=os.getenv('OPENAI_API_BASE')
-        )
+    """Сервис для парсинга чеков с помощью OpenAI."""
+
+    def __init__(self, client: Optional[openai.OpenAI] = None):
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            raise RuntimeError(
+                'OpenAI API key is not configured. Set OPENAI_API_KEY environment variable.'
+            )
+
+        base_url = os.getenv('OPENAI_API_BASE')
+        self.client = client or openai.OpenAI(api_key=api_key, base_url=base_url)
         
         self.parsing_prompt = """
 Ты - специализированный парсер финансовых чеков из Узбекистана. Твоя задача - извлечь структурированные данные из текста чека и вернуть их в формате JSON.
@@ -150,30 +157,38 @@ class AIParsingService:
         
         return {'valid': True}
     
-    def enhance_with_operator_info(self, parsed_data: Dict, operators_list: list) -> Dict:
+    def enhance_with_operator_info(self, parsed_data: Dict, operators_list: Sequence) -> Dict:
         """
         Улучшение данных с информацией об операторе из базы данных
-        
+
         Args:
             parsed_data: Распарсенные данные чека
             operators_list: Список операторов из базы данных
-        
+
         Returns:
             Обогащенные данные с информацией об операторе
         """
         if 'operator' not in parsed_data or not parsed_data['operator']:
             return parsed_data
-        
-        operator_name = parsed_data['operator'].upper()
-        
-        # Ищем оператора в базе данных
+
+        operator_name = str(parsed_data['operator']).upper()
+
+        normalized_operators = []
         for operator in operators_list:
-            if operator['name'].upper() == operator_name:
-                parsed_data['operator_id'] = operator['id']
-                parsed_data['operator_name'] = operator['name']
+            if isinstance(operator, dict):
+                normalized_operators.append(operator)
+            else:
+                normalized_operators.append(operator.to_dict())
+
+        # Ищем оператора в базе данных
+        for operator in normalized_operators:
+            name = operator.get('name')
+            if name and name.upper() == operator_name:
+                parsed_data['operator_id'] = operator.get('id')
+                parsed_data['operator_name'] = name
                 parsed_data['operator_description'] = operator.get('description', '')
                 break
-        
+
         return parsed_data
     
     def batch_parse_receipts(self, receipts_list: list) -> list:

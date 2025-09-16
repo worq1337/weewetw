@@ -1,10 +1,10 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request
+
 from src.models.transaction import Transaction, db
-from src.models.user import User
 
 trash_bp = Blueprint('trash', __name__)
 
-@trash_bp.route('/api/transactions/<int:transaction_id>/soft-delete', methods=['POST'])
+@trash_bp.route('/transactions/<int:transaction_id>/soft-delete', methods=['POST'])
 def soft_delete_transaction(transaction_id):
     """Помечает транзакцию как удаленную (soft delete)"""
     try:
@@ -27,7 +27,7 @@ def soft_delete_transaction(transaction_id):
             'error': str(e)
         }), 500
 
-@trash_bp.route('/api/transactions/<int:transaction_id>/restore', methods=['POST'])
+@trash_bp.route('/transactions/<int:transaction_id>/restore', methods=['POST'])
 def restore_transaction(transaction_id):
     """Восстанавливает транзакцию из корзины"""
     try:
@@ -50,7 +50,7 @@ def restore_transaction(transaction_id):
             'error': str(e)
         }), 500
 
-@trash_bp.route('/api/transactions/<int:transaction_id>/permanent-delete', methods=['DELETE'])
+@trash_bp.route('/transactions/<int:transaction_id>/permanent-delete', methods=['DELETE'])
 def permanent_delete_transaction(transaction_id):
     """Окончательно удаляет транзакцию из базы данных"""
     try:
@@ -80,7 +80,7 @@ def permanent_delete_transaction(transaction_id):
             'error': str(e)
         }), 500
 
-@trash_bp.route('/api/trash/transactions', methods=['GET'])
+@trash_bp.route('/trash/transactions', methods=['GET'])
 def get_trash_transactions():
     """Получает все удаленные транзакции (корзина)"""
     try:
@@ -112,7 +112,7 @@ def get_trash_transactions():
             'error': str(e)
         }), 500
 
-@trash_bp.route('/api/trash/empty', methods=['DELETE'])
+@trash_bp.route('/trash/empty', methods=['DELETE'])
 def empty_trash():
     """Окончательно удаляет все транзакции из корзины"""
     try:
