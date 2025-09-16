@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Save, X } from 'lucide-react';
+import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js';
 
 const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
   const [formData, setFormData] = useState({
@@ -24,32 +25,21 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
   // Загружаем список операторов и приложений
   useEffect(() => {
     fetchOperators();
-    fetchApplications();
   }, []);
 
   const fetchOperators = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/operators');
+      const response = await apiFetch(`/api/operators?telegram_id=${DEFAULT_TELEGRAM_ID}`);
       if (response.ok) {
         const data = await response.json();
-        setOperators(data);
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки операторов:', error);
-    }
-  };
+        const operatorList = data.operators || [];
+        setOperators(operatorList);
 
-  const fetchApplications = async () => {
-    try {
-      const response = await fetch('http://localhost:5000/api/operators');
-      if (response.ok) {
-        const data = await response.json();
-        // Извлекаем уникальные приложения из операторов
-        const uniqueApps = [...new Set(data.flatMap(op => op.applications || []))];
+        const uniqueApps = [...new Set(operatorList.map(op => op.description).filter(Boolean))];
         setApplications(uniqueApps.map(app => ({ name: app })));
       }
     } catch (error) {
-      console.error('Ошибка загрузки приложений:', error);
+      console.error('Ошибка загрузки операторов:', error);
     }
   };
 
@@ -75,10 +65,10 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
         amount: parseFloat(formData.amount) || 0,
         balance: parseFloat(formData.balance) || 0,
         raw_text: formData.raw_text || `Ручное добавление: ${formData.description}`,
-        telegram_id: 123456789 // Тестовый ID пользователя
+        telegram_id: DEFAULT_TELEGRAM_ID // Тестовый ID пользователя
       };
 
-      const response = await fetch('http://localhost:5000/api/transactions', {
+      const response = await apiFetch('/api/transactions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,12 +77,13 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
       });
 
       if (response.ok) {
-        const newTransaction = await response.json();
+        const payload = await response.json();
+        const createdTransaction = payload.transaction;
         setSuccess('Транзакция успешно добавлена!');
-        
+
         // Уведомляем родительский компонент о новой транзакции
-        if (onTransactionAdded) {
-          onTransactionAdded(newTransaction);
+        if (onTransactionAdded && createdTransaction) {
+          onTransactionAdded(createdTransaction);
         }
         
         // Очищаем форму
@@ -113,8 +104,14 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
           onBack();
         }, 2000);
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Ошибка при добавлении транзакции');
+        let errorMessage = 'Ошибка при добавлении транзакции';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          console.error('Не удалось прочитать ответ об ошибке:', parseError);
+        }
+        setError(errorMessage);
       }
     } catch (error) {
       setError('Ошибка сети: ' + error.message);

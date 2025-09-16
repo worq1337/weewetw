@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Save, Trash2, Edit3, X } from 'lucide-react';
+import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js';
 
 const SettingsPage = ({ onBack }) => {
   const [operators, setOperators] = useState([]);
@@ -12,7 +13,6 @@ const SettingsPage = ({ onBack }) => {
   const [newOperator, setNewOperator] = useState({ name: '', description: '' });
   const [newCategory, setNewCategory] = useState({ name: '', description: '' });
   const [editingOperator, setEditingOperator] = useState(null);
-  const [editingCategory, setEditingCategory] = useState(null);
 
   useEffect(() => {
     fetchOperators();
@@ -21,10 +21,10 @@ const SettingsPage = ({ onBack }) => {
 
   const fetchOperators = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/operators');
+      const response = await apiFetch(`/api/operators?telegram_id=${DEFAULT_TELEGRAM_ID}`);
       if (response.ok) {
         const data = await response.json();
-        setOperators(data);
+        setOperators(data.operators || []);
       }
     } catch (error) {
       console.error('Ошибка загрузки операторов:', error);
@@ -32,13 +32,23 @@ const SettingsPage = ({ onBack }) => {
   };
 
   const fetchCategories = async () => {
-    // Пока используем моковые данные для категорий
-    setCategories([
-      { id: 1, name: 'Переводы', description: 'Переводы между счетами' },
-      { id: 2, name: 'Покупки', description: 'Покупки товаров и услуг' },
-      { id: 3, name: 'Пополнения', description: 'Пополнение счета' },
-      { id: 4, name: 'Прочее', description: 'Прочие операции' }
-    ]);
+    try {
+      const response = await apiFetch('/api/categories');
+      if (response.ok) {
+        const data = await response.json();
+        const categoryList = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.categories)
+            ? data.categories
+            : [];
+        setCategories(categoryList);
+      } else {
+        setCategories([]);
+      }
+    } catch (error) {
+      console.warn('Категории пока недоступны:', error);
+      setCategories([]);
+    }
   };
 
   const handleAddOperator = async (e) => {
@@ -47,7 +57,7 @@ const SettingsPage = ({ onBack }) => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/operators', {
+      const response = await apiFetch('/api/operators', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -55,7 +65,7 @@ const SettingsPage = ({ onBack }) => {
         body: JSON.stringify({
           name: newOperator.name.trim(),
           description: newOperator.description.trim(),
-          telegram_id: 123456789 // Тестовый ID пользователя
+          telegram_id: DEFAULT_TELEGRAM_ID // Тестовый ID пользователя
         })
       });
 
@@ -80,14 +90,15 @@ const SettingsPage = ({ onBack }) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/operators/${operator.id}`, {
+      const response = await apiFetch(`/api/operators/${operator.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           name: editingOperator.name.trim(),
-          description: editingOperator.description.trim()
+          description: editingOperator.description.trim(),
+          telegram_id: DEFAULT_TELEGRAM_ID
         })
       });
 
@@ -112,7 +123,7 @@ const SettingsPage = ({ onBack }) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/operators/${operatorId}`, {
+      const response = await apiFetch(`/api/operators/${operatorId}?telegram_id=${DEFAULT_TELEGRAM_ID}`, {
         method: 'DELETE'
       });
 
@@ -264,72 +275,71 @@ const SettingsPage = ({ onBack }) => {
             {/* Форма добавления категории */}
             <form className="mb-6 p-4 bg-gray-50 rounded-lg">
               <h3 className="text-lg font-medium text-gray-700 mb-3">Добавить новую категорию</h3>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Название категории"
-                  value={newCategory.name}
-                  onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <input
-                  type="text"
-                  placeholder="Описание категории"
-                  value={newCategory.description}
-                  onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  type="button"
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  onClick={() => {
-                    if (newCategory.name.trim()) {
-                      setCategories(prev => [...prev, {
-                        id: Date.now(),
-                        name: newCategory.name.trim(),
-                        description: newCategory.description.trim()
-                      }]);
-                      setNewCategory({ name: '', description: '' });
-                      setSuccess('Категория добавлена!');
-                      setTimeout(() => setSuccess(''), 3000);
-                    }
-                  }}
-                >
-                  <Plus size={16} />
-                  Добавить
-                </button>
-              </div>
-            </form>
-
-            {/* Список категорий */}
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium text-gray-700 mb-3">Существующие категории</h3>
-              {categories.map(category => (
-                <div key={category.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-800">{category.name}</div>
-                    <div className="text-sm text-gray-600">{category.description}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="p-1 text-blue-600 hover:bg-blue-100 rounded">
-                      <Edit3 size={16} />
-                    </button>
-                    <button 
-                      onClick={() => {
-                        if (confirm('Удалить эту категорию?')) {
-                          setCategories(prev => prev.filter(c => c.id !== category.id));
-                          setSuccess('Категория удалена!');
-                          setTimeout(() => setSuccess(''), 3000);
-                        }
-                      }}
-                      className="p-1 text-red-600 hover:bg-red-100 rounded"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Название категории"
+                    value={newCategory.name}
+                    onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"
+                    disabled
+                  />
+                  <input
+                    type="text"
+                    placeholder="Описание категории"
+                    value={newCategory.description}
+                    onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"
+                    disabled
+                  />
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed"
+                    disabled
+                    title="Добавление категорий будет доступно после интеграции с backend"
+                  >
+                    <Plus size={16} />
+                    Добавить
+                  </button>
+                  <p className="text-xs text-gray-500">
+                    Добавление категорий станет доступным после подключения backend API.
+                  </p>
                 </div>
-              ))}
-            </div>
+              </form>
+
+              {/* Список категорий */}
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium text-gray-700 mb-3">Существующие категории</h3>
+                {categories.length === 0 ? (
+                  <p className="text-sm text-gray-500">Категории отсутствуют. Ожидается интеграция с backend.</p>
+                ) : (
+                  categories.map(category => (
+                    <div key={category.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-800">{category.name}</div>
+                        <div className="text-sm text-gray-600">{category.description}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="p-1 text-blue-600 hover:bg-blue-100 rounded">
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm('Удалить эту категорию?')) {
+                              setCategories(prev => prev.filter(c => c.id !== category.id));
+                              setSuccess('Категория удалена!');
+                              setTimeout(() => setSuccess(''), 3000);
+                            }
+                          }}
+                          className="p-1 text-red-600 hover:bg-red-100 rounded"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
           </div>
         </div>
 

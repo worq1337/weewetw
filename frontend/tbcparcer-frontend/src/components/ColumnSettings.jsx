@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { AlignLeft, AlignCenter, AlignRight, Palette } from 'lucide-react'
+import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 
-const ColumnSettings = ({ column, settings, onSettingsChange, onClose }) => {
+const ColumnSettings = ({ settings, onSettingsChange, onClose }) => {
   const [alignment, setAlignment] = useState(settings.alignment || 'left')
   const dropdownRef = useRef(null)
 
@@ -44,18 +44,22 @@ const ColumnSettings = ({ column, settings, onSettingsChange, onClose }) => {
             Выравнивание текста
           </h4>
           <div className="grid grid-cols-3 gap-1">
-            {alignmentOptions.map(({ value, icon: Icon, label }) => (
-              <Button
-                key={value}
-                variant={alignment === value ? "default" : "outline"}
+            {alignmentOptions.map((option) => {
+              const IconComponent = option.icon
+
+              return (
+                <Button
+                key={option.value}
+                variant={alignment === option.value ? "default" : "outline"}
                 size="sm"
                 className="h-8 w-full"
-                onClick={() => handleAlignmentChange(value)}
-                title={label}
+                onClick={() => handleAlignmentChange(option.value)}
+                title={option.label}
               >
-                <Icon className="h-3 w-3" />
+                <IconComponent className="h-3 w-3" />
               </Button>
-            ))}
+              )
+            })}
           </div>
         </div>
         

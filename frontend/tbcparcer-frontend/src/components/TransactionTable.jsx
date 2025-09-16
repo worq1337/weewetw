@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Settings, GripVertical, Edit3, Check, X, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import ColumnSettings from './ColumnSettings'
+import { apiFetch } from '@/lib/api.js'
 
 // Ключ для сохранения настроек в localStorage
 const STORAGE_KEY = 'tbcparcer_table_settings'
@@ -187,7 +188,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
   const handleDeleteTransaction = async (transactionId) => {
     if (window.confirm('Вы уверены, что хотите переместить эту транзакцию в корзину?')) {
       try {
-        const response = await fetch(`/api/transactions/${transactionId}/soft-delete`, {
+        const response = await apiFetch(`/api/transactions/${transactionId}/soft-delete`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

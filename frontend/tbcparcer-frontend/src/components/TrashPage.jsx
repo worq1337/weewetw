@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, RotateCcw, Trash2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
+import { apiFetch } from '@/lib/api.js'
 
 const TrashPage = ({ onBack }) => {
   const [deletedTransactions, setDeletedTransactions] = useState([])
@@ -15,7 +16,7 @@ const TrashPage = ({ onBack }) => {
   const fetchDeletedTransactions = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/trash/transactions')
+      const response = await apiFetch('/api/trash/transactions')
       if (response.ok) {
         const data = await response.json()
         setDeletedTransactions(data.transactions || [])
@@ -32,7 +33,7 @@ const TrashPage = ({ onBack }) => {
   // Восстановление транзакции
   const handleRestore = async (transactionId) => {
     try {
-      const response = await fetch(`/api/transactions/${transactionId}/restore`, {
+      const response = await apiFetch(`/api/transactions/${transactionId}/restore`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -56,7 +57,7 @@ const TrashPage = ({ onBack }) => {
   // Окончательное удаление транзакции
   const handlePermanentDelete = async (transactionId) => {
     try {
-      const response = await fetch(`/api/transactions/${transactionId}/permanent-delete`, {
+      const response = await apiFetch(`/api/transactions/${transactionId}/permanent-delete`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -82,7 +83,7 @@ const TrashPage = ({ onBack }) => {
   const handleEmptyTrash = async () => {
     if (window.confirm('Вы уверены, что хотите окончательно удалить ВСЕ транзакции из корзины? Это действие нельзя отменить!')) {
       try {
-        const response = await fetch('/api/trash/empty', {
+        const response = await apiFetch('/api/trash/empty', {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
