@@ -36,7 +36,7 @@ const transformTransaction = (transaction) => {
     date: fallbackDate,
     time: fallbackDate,
     operator_seller: transaction.operator_name || 'Неизвестно',
-    application: transaction.operator_description || 'Неизвестно',
+    application: transaction.operator_description || transaction.description || 'Неизвестно',
     amount: Number(transaction.amount ?? 0),
     balance: Number(transaction.balance ?? 0),
     card_number: transaction.card_number || '',

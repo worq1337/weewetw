@@ -1,145 +1,314 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Save, X } from 'lucide-react';
-import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js';
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, Save, X } from 'lucide-react'
+import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js'
+import {
+  manualTransactionFieldGroups,
+  createEmptyManualTransaction
+} from '@/lib/manualTransactionSchema.js'
+
+const buildOperatorOption = (operator) => ({
+  value: String(operator.id),
+  label: operator.description
+    ? `${operator.name} — ${operator.description}`
+    : operator.name,
+  raw: operator
+})
+
+const getFieldError = (field, rawValue) => {
+  const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue
+  const { validation = {}, required, label } = field
+
+  if (required && (value === '' || value === null || value === undefined)) {
+    return `Поле «${label}» обязательно для заполнения`
+  }
+
+  if (value === '' || value === null || value === undefined) {
+    return undefined
+  }
+
+  switch (validation.type) {
+    case 'datetime': {
+      const dateValue = new Date(value)
+      if (Number.isNaN(dateValue.valueOf())) {
+        return 'Укажите корректную дату и время'
+      }
+      return undefined
+    }
+    case 'enum': {
+      if (validation.values && !validation.values.includes(value)) {
+        return 'Выберите значение из списка'
+      }
+      return undefined
+    }
+    case 'number': {
+      const numericValue = Number(value)
+      if (Number.isNaN(numericValue)) {
+        return 'Введите число'
+      }
+      if (validation.min !== undefined && numericValue < validation.min) {
+        return validation.message || `Значение должно быть не меньше ${validation.min}`
+      }
+      if (validation.max !== undefined && numericValue > validation.max) {
+        return validation.message || `Значение должно быть не больше ${validation.max}`
+      }
+      return undefined
+    }
+    case 'pattern': {
+      if (validation.pattern && !validation.pattern.test(value)) {
+        if (validation.allowEmpty && value === '') {
+          return undefined
+        }
+        return validation.message || 'Неверный формат значения'
+      }
+      return undefined
+    }
+    case 'string': {
+      if (validation.minLength && value.length < validation.minLength) {
+        return validation.message || `Минимальная длина — ${validation.minLength} символа`
+      }
+      if (validation.maxLength && value.length > validation.maxLength) {
+        return validation.message || `Максимальная длина — ${validation.maxLength} символов`
+      }
+      return undefined
+    }
+    default:
+      return undefined
+  }
+}
+
+const buildPayload = (formValues) => {
+  const payload = {
+    telegram_id: DEFAULT_TELEGRAM_ID,
+    date_time: formValues.date_time,
+    operation_type: formValues.operation_type,
+    amount: Number(formValues.amount),
+    currency: formValues.currency,
+    description: formValues.description.trim(),
+    raw_text: formValues.raw_text.trim() || null
+  }
+
+  if (formValues.balance !== '' && formValues.balance !== null) {
+    payload.balance = Number(formValues.balance)
+  }
+
+  if (formValues.card_number) {
+    payload.card_number = formValues.card_number.trim()
+  }
+
+  if (formValues.operator_id) {
+    payload.operator_id = Number(formValues.operator_id)
+  }
+
+  return payload
+}
+
+const getGridColumnsClass = (columns) => {
+  if (columns === 2) {
+    return 'grid-cols-1 md:grid-cols-2'
+  }
+  if (columns === 3) {
+    return 'grid-cols-1 md:grid-cols-3'
+  }
+  return 'grid-cols-1'
+}
 
 const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
-  const [formData, setFormData] = useState({
-    date_time: '',
-    operation_type: 'payment',
-    amount: '',
-    currency: 'UZS',
-    card_number: '',
-    description: '',
-    balance: '',
-    operator_name: '',
-    application: '',
-    raw_text: ''
-  });
-  
-  const [operators, setOperators] = useState([]);
-  const [applications, setApplications] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [formValues, setFormValues] = useState(createEmptyManualTransaction())
+  const [errors, setErrors] = useState({})
+  const [operators, setOperators] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
-  // Загружаем список операторов и приложений
   useEffect(() => {
-    fetchOperators();
-  }, []);
+    const fetchOperators = async () => {
+      try {
+        const response = await apiFetch(`/api/operators?telegram_id=${DEFAULT_TELEGRAM_ID}`)
+        if (!response.ok) {
+          throw new Error('Не удалось загрузить операторов')
+        }
 
-  const fetchOperators = async () => {
-    try {
-      const response = await apiFetch(`/api/operators?telegram_id=${DEFAULT_TELEGRAM_ID}`);
-      if (response.ok) {
-        const data = await response.json();
-        const operatorList = data.operators || [];
-        setOperators(operatorList);
-
-        const uniqueApps = [...new Set(operatorList.map(op => op.description).filter(Boolean))];
-        setApplications(uniqueApps.map(app => ({ name: app })));
+        const data = await response.json()
+        setOperators(Array.isArray(data.operators) ? data.operators : [])
+      } catch (error) {
+        console.warn('Ошибка загрузки операторов:', error)
+        setOperators([])
       }
-    } catch (error) {
-      console.error('Ошибка загрузки операторов:', error);
     }
-  };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+    fetchOperators()
+  }, [])
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
+  const operatorOptions = useMemo(() => {
+    return operators.map(buildOperatorOption)
+  }, [operators])
+
+  const handleFieldChange = (field, value) => {
+    setFormValues(prevValues => {
+      const nextValues = { ...prevValues, [field.name]: value }
+
+      if (field.name === 'operator_id') {
+        const selected = operatorOptions.find(option => option.value === value)
+        if (selected?.raw?.description && !prevValues.description) {
+          nextValues.description = selected.raw.description
+        }
+      }
+
+      return nextValues
+    })
+
+    setErrors(prevErrors => ({
+      ...prevErrors,
+      [field.name]: undefined
+    }))
+  }
+
+  const validateForm = () => {
+    const validationErrors = {}
+
+    manualTransactionFieldGroups.forEach(group => {
+      group.fields.forEach(field => {
+        const fieldValue = formValues[field.name]
+        const fieldError = getFieldError(field, fieldValue)
+        if (fieldError) {
+          validationErrors[field.name] = fieldError
+        }
+      })
+    })
+
+    return validationErrors
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    const validationErrors = validateForm()
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors)
+      return
+    }
+
+    setLoading(true)
 
     try {
-      // Подготавливаем данные для отправки
-      const transactionData = {
-        ...formData,
-        date_time: formData.date_time || new Date().toISOString(),
-        amount: parseFloat(formData.amount) || 0,
-        balance: parseFloat(formData.balance) || 0,
-        raw_text: formData.raw_text || `Ручное добавление: ${formData.description}`,
-        telegram_id: DEFAULT_TELEGRAM_ID // Тестовый ID пользователя
-      };
-
+      const payload = buildPayload(formValues)
       const response = await apiFetch('/api/transactions', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(transactionData)
-      });
+        body: JSON.stringify(payload)
+      })
 
-      if (response.ok) {
-        const payload = await response.json();
-        const createdTransaction = payload.transaction;
-        setSuccess('Транзакция успешно добавлена!');
-
-        // Уведомляем родительский компонент о новой транзакции
-        if (onTransactionAdded && createdTransaction) {
-          onTransactionAdded(createdTransaction);
-        }
-        
-        // Очищаем форму
-        setFormData({
-          date_time: '',
-          operation_type: 'payment',
-          amount: '',
-          currency: 'UZS',
-          card_number: '',
-          description: '',
-          balance: '',
-          operator_name: '',
-          raw_text: ''
-        });
-
-        // Через 2 секунды возвращаемся на главную
-        setTimeout(() => {
-          onBack();
-        }, 2000);
-      } else {
-        let errorMessage = 'Ошибка при добавлении транзакции';
+      if (!response.ok) {
+        let errorText = 'Ошибка при добавлении транзакции'
         try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
+          const errorData = await response.json()
+          errorText = errorData.error || errorText
         } catch (parseError) {
-          console.error('Не удалось прочитать ответ об ошибке:', parseError);
+          console.warn('Не удалось разобрать ответ об ошибке:', parseError)
         }
-        setError(errorMessage);
+        throw new Error(errorText)
       }
+
+      const data = await response.json()
+      const createdTransaction = data.transaction
+
+      if (onTransactionAdded && createdTransaction) {
+        onTransactionAdded(createdTransaction)
+      }
+
+      setSuccessMessage('Транзакция успешно сохранена')
+      setFormValues(createEmptyManualTransaction())
+      setErrors({})
+
+      setTimeout(() => {
+        setSuccessMessage('')
+        onBack()
+      }, 1500)
     } catch (error) {
-      setError('Ошибка сети: ' + error.message);
+      setErrorMessage(error.message || 'Ошибка при добавлении транзакции')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleReset = () => {
-    setFormData({
-      date_time: '',
-      operation_type: 'payment',
-      amount: '',
-      currency: 'UZS',
-      card_number: '',
-      description: '',
-      balance: '',
-      operator_name: '',
-      raw_text: ''
-    });
-    setError('');
-    setSuccess('');
-  };
+    setFormValues(createEmptyManualTransaction())
+    setErrors({})
+    setErrorMessage('')
+    setSuccessMessage('')
+  }
+
+  const renderFieldControl = (field) => {
+    const value = formValues[field.name]
+    const fieldError = errors[field.name]
+    const options = field.type === 'select'
+      ? field.dynamicOptions === 'operators'
+        ? [{ value: '', label: 'Без оператора' }, ...operatorOptions]
+        : field.options || []
+      : []
+
+    const commonProps = {
+      id: field.name,
+      name: field.name,
+      value: value,
+      onChange: (event) => handleFieldChange(field, event.target.value),
+      className: `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${fieldError ? 'border-red-400' : 'border-gray-300'}`,
+      'aria-invalid': fieldError ? 'true' : 'false'
+    }
+
+    if (field.type === 'select') {
+      return (
+        <select {...commonProps}>
+          {options.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )
+    }
+
+    if (field.type === 'textarea') {
+      return (
+        <textarea
+          {...commonProps}
+          rows={field.minRows || 3}
+          placeholder={field.placeholder}
+        />
+      )
+    }
+
+    const inputSpecificProps = {}
+
+    if (field.type === 'number') {
+      inputSpecificProps.type = 'number'
+      inputSpecificProps.step = field.step || '0.01'
+      inputSpecificProps.inputMode = 'decimal'
+      inputSpecificProps.placeholder = field.placeholder
+    } else if (field.type === 'datetime-local') {
+      inputSpecificProps.type = 'datetime-local'
+      inputSpecificProps.placeholder = field.placeholder
+    } else {
+      inputSpecificProps.type = field.type || 'text'
+      if (field.inputMode) {
+        inputSpecificProps.inputMode = field.inputMode
+      }
+      if (field.maxLength) {
+        inputSpecificProps.maxLength = field.maxLength
+      }
+      inputSpecificProps.placeholder = field.placeholder
+    }
+
+    return <input {...commonProps} {...inputSpecificProps} />
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      {/* Заголовок */}
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={onBack}
@@ -148,224 +317,76 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
             <ArrowLeft size={20} />
             Назад
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">Добавить чек</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Добавить чек вручную</h1>
         </div>
 
-        {/* Форма */}
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Дата и время */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Дата и время
-                </label>
-                <input
-                  type="datetime-local"
-                  name="date_time"
-                  value={formData.date_time}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Тип операции
-                </label>
-                <select
-                  name="operation_type"
-                  value={formData.operation_type}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="payment">Оплата</option>
-                  <option value="refill">Пополнение</option>
-                  <option value="conversion">Конверсия</option>
-                  <option value="cancel">Отмена</option>
-                </select>
-              </div>
-            </div>
+            {manualTransactionFieldGroups.map(group => (
+              <section key={group.id} className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">{group.title}</h2>
+                  {group.description && (
+                    <p className="text-sm text-gray-500 mt-1">{group.description}</p>
+                  )}
+                </div>
 
-            {/* Сумма и валюта */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Сумма
-                </label>
-                <input
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  step="0.01"
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Валюта
-                </label>
-                <select
-                  name="currency"
-                  value={formData.currency}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="UZS">UZS</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="RUB">RUB</option>
-                </select>
-              </div>
-            </div>
+                <div className={`grid gap-4 ${getGridColumnsClass(group.columns)}`}>
+                  {group.fields.map(field => (
+                    <div key={field.name} className="flex flex-col space-y-2">
+                      <label htmlFor={field.name} className="text-sm font-medium text-gray-700">
+                        {field.label}
+                        {field.required && <span className="text-red-500 ml-1">*</span>}
+                      </label>
+                      {renderFieldControl(field)}
+                      {field.helperText && (
+                        <p className="text-xs text-gray-500">{field.helperText}</p>
+                      )}
+                      {errors[field.name] && (
+                        <p className="text-xs text-red-600">{errors[field.name]}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
 
-            {/* Карта и баланс */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Номер карты (последние 4 цифры)
-                </label>
-                <input
-                  type="text"
-                  name="card_number"
-                  value={formData.card_number}
-                  onChange={handleInputChange}
-                  placeholder="1234"
-                  maxLength="4"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Остаток на счете
-                </label>
-                <input
-                  type="number"
-                  name="balance"
-                  value={formData.balance}
-                  onChange={handleInputChange}
-                  step="0.01"
-                  placeholder="0.00"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* Оператор */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Оператор/Продавец
-              </label>
-              <select
-                name="operator_name"
-                value={formData.operator_name}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Выберите оператора</option>
-                {operators.map((operator, index) => (
-                  <option key={index} value={operator.name}>
-                    {operator.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Приложение */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Приложение
-              </label>
-              <select
-                name="application"
-                value={formData.application}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Выберите приложение</option>
-                {applications.map((app, index) => (
-                  <option key={index} value={app.name}>
-                    {app.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Описание */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Описание операции
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                rows="3"
-                placeholder="Описание транзакции..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            {/* Исходный текст */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Исходный текст чека (необязательно)
-              </label>
-              <textarea
-                name="raw_text"
-                value={formData.raw_text}
-                onChange={handleInputChange}
-                rows="3"
-                placeholder="Оригинальный текст SMS или уведомления..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Сообщения об ошибках и успехе */}
-            {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-800">{error}</p>
+            {errorMessage && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                {errorMessage}
               </div>
             )}
 
-            {success && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800">{success}</p>
+            {successMessage && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                {successMessage}
               </div>
             )}
 
-            {/* Кнопки */}
-            <div className="flex gap-4 pt-4">
+            <div className="flex gap-4 pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
-                <Save size={20} />
-                {loading ? 'Сохранение...' : 'Сохранить'}
+                <Save size={18} />
+                {loading ? 'Сохранение...' : 'Сохранить чек'}
               </button>
-              
+
               <button
                 type="button"
                 onClick={handleReset}
                 className="flex items-center gap-2 px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
               >
-                <X size={20} />
-                Очистить
+                <X size={18} />
+                Очистить форму
               </button>
             </div>
           </form>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default AddReceiptPage;
-
+export default AddReceiptPage
