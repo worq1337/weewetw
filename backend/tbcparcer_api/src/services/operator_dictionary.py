@@ -85,6 +85,16 @@ class OperatorDictionary:
                     return entry.copy()
         return None
 
+    def normalize(self, candidate: Optional[str]) -> str:
+        if not candidate:
+            return ''
+
+        entry = self.lookup(candidate)
+        if entry:
+            return entry['normalized']
+
+        return _normalize(candidate)
+
     def size(self) -> int:
         with self._lock:
             return len(self._entries)
@@ -95,9 +105,14 @@ class OperatorDictionary:
 
 
 def _default_dictionary_path() -> Path:
-    base_dir = Path(__file__).resolve().parent.parent
-    data_dir = base_dir / 'data'
-    return data_dir / 'operators_dict.json'
+    module_path = Path(__file__).resolve()
+    project_root = module_path.parents[4]
+    primary_path = project_root / 'data' / 'operators_dict.json'
+    if primary_path.exists():
+        return primary_path
+
+    legacy_path = module_path.parents[2] / 'data' / 'operators_dict.json'
+    return legacy_path
 
 
 _DICTIONARY_INSTANCE: Optional[OperatorDictionary] = None
@@ -118,5 +133,7 @@ def reload_operator_dictionary() -> int:
     return dictionary.reload()
 
 
-def normalize_operator_value(value: str) -> str:
-    return _normalize(value)
+def normalize_operator_value(value: str, dictionary: Optional[OperatorDictionary] = None) -> str:
+    if dictionary is None:
+        dictionary = get_operator_dictionary()
+    return dictionary.normalize(value)

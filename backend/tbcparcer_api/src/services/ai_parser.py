@@ -409,7 +409,11 @@ class AIParsingService:
             resolved_alias = original_operator
             resolved_brand = None
 
-        target_normalized = normalize_operator_value(resolved_alias)
+        normalized_alias = dictionary.normalize(resolved_alias)
+        if normalized_alias:
+            parsed_data['operator_normalized'] = normalized_alias
+
+        target_normalized = normalized_alias
 
         normalized_operators = []
         for operator in operators_list:
@@ -420,22 +424,23 @@ class AIParsingService:
 
         # Ищем оператора в базе данных
         matched_operator: Optional[Dict] = None
-        for operator in normalized_operators:
-            name = operator.get('name')
-            if not name:
-                continue
+        if target_normalized:
+            for operator in normalized_operators:
+                name = operator.get('name')
+                if not name:
+                    continue
 
-            normalized_name = normalize_operator_value(name)
-            if not normalized_name:
-                continue
+                normalized_name = normalize_operator_value(name, dictionary)
+                if not normalized_name:
+                    continue
 
-            if (
-                normalized_name == target_normalized
-                or normalized_name in target_normalized
-                or target_normalized in normalized_name
-            ):
-                matched_operator = operator
-                break
+                if (
+                    normalized_name == target_normalized
+                    or normalized_name in target_normalized
+                    or target_normalized in normalized_name
+                ):
+                    matched_operator = operator
+                    break
 
         if matched_operator:
             parsed_data['operator_id'] = matched_operator.get('id')

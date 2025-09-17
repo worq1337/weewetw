@@ -17,7 +17,7 @@ _SAMPLE_ALIASES = [
 def _collect_examples(dictionary):
     examples = []
     for raw_value in _SAMPLE_ALIASES:
-        normalized_value = normalize_operator_value(raw_value)
+        normalized_value = normalize_operator_value(raw_value, dictionary)
         dictionary_entry = dictionary.lookup(raw_value)
         examples.append({
             'input': raw_value,
