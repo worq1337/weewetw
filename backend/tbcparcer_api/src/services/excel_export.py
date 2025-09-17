@@ -4,27 +4,102 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from datetime import datetime, date, time
 import io
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 class ExcelExportService:
     def __init__(self):
-        # Колонки точно соответствуют таблице на сайте (ТЗ)
-        self.columns = [
-            'Номер чека',
-            'Дата и время', 
-            'Д.н.',
-            'Дата',
-            'Время',
-            'Оператор/Продавец',
-            'Приложение',
-            'Сумма',
-            'Остаток',
-            'ПК',
-            'P2P',
-            'Тип транзакции',
-            'Валюта',
-            'Источник данных',
-            'Категория'
+        # Конфигурация колонок соответствует таблице на сайте (ТЗ)
+        self.column_config = [
+            {
+                'key': 'receipt_number',
+                'header': 'Номер чека',
+                'width': 18,
+                'alignment': 'center'
+            },
+            {
+                'key': 'date_time',
+                'header': 'Дата и время',
+                'width': 22,
+                'alignment': 'center',
+                'number_format': 'dd.mm.yyyy hh:mm'
+            },
+            {
+                'key': 'day_name',
+                'header': 'Д.н.',
+                'width': 9,
+                'alignment': 'center'
+            },
+            {
+                'key': 'date',
+                'header': 'Дата',
+                'width': 14,
+                'alignment': 'center',
+                'number_format': 'dd.mm.yyyy'
+            },
+            {
+                'key': 'time',
+                'header': 'Время',
+                'width': 12,
+                'alignment': 'center',
+                'number_format': 'hh:mm'
+            },
+            {
+                'key': 'operator_seller',
+                'header': 'Оператор/Продавец',
+                'width': 22
+            },
+            {
+                'key': 'application',
+                'header': 'Приложение',
+                'width': 20
+            },
+            {
+                'key': 'amount',
+                'header': 'Сумма',
+                'width': 18,
+                'alignment': 'right',
+                'number_format': '#,##0.00'
+            },
+            {
+                'key': 'balance',
+                'header': 'Остаток',
+                'width': 18,
+                'alignment': 'right',
+                'number_format': '#,##0.00'
+            },
+            {
+                'key': 'card_number',
+                'header': 'ПК',
+                'width': 12,
+                'alignment': 'center'
+            },
+            {
+                'key': 'p2p',
+                'header': 'P2P',
+                'width': 10,
+                'alignment': 'center'
+            },
+            {
+                'key': 'transaction_type',
+                'header': 'Тип транзакции',
+                'width': 20
+            },
+            {
+                'key': 'currency',
+                'header': 'Валюта',
+                'width': 12,
+                'alignment': 'center'
+            },
+            {
+                'key': 'data_source',
+                'header': 'Источник данных',
+                'width': 18
+            },
+            {
+                'key': 'category',
+                'header': 'Категория',
+                'width': 18
+            }
         ]
         
         self.operation_types = {
@@ -57,7 +132,7 @@ class ExcelExportService:
             return card_number
         return f"*{card_number[-4:]}" if len(card_number) >= 4 else card_number
     
-    def _get_transaction_data(self, transaction):
+    def _get_transaction_data(self, transaction: Dict[str, Any]) -> Dict[str, Any]:
         """Преобразовать транзакцию в данные для Excel согласно ТЗ"""
         date_time_obj = None
         if transaction.get('date_time'):
@@ -89,23 +164,26 @@ class ExcelExportService:
             date_value = date_time_obj.date()
             time_value = date_time_obj.time().replace(second=0, microsecond=0)
 
-        return [
-            receipt_number,  # Номер чека
-            date_time_obj if date_time_obj else None,  # Дата и время
-            self._get_day_of_week(date_time_obj),  # Д.н.
-            date_value,  # Дата
-            time_value,  # Время
-            transaction.get('operator_name', ''),  # Оператор/Продавец
-            transaction.get('operator_description', ''),  # Приложение
-            transaction.get('amount', 0),  # Сумма
-            transaction.get('balance', 0),  # Остаток
-            self._format_card_number(transaction.get('card_number', '')),  # ПК
-            p2p_value,  # P2P
-            self.operation_types.get(transaction.get('operation_type', ''), transaction.get('operation_type', '')),  # Тип транзакции
-            transaction.get('currency', 'UZS'),  # Валюта
-            'API',  # Источник данных (заглушка)
-            self._get_category_from_description(transaction.get('description', ''))  # Категория
-        ]
+        return {
+            'receipt_number': receipt_number,
+            'date_time': date_time_obj if date_time_obj else None,
+            'day_name': self._get_day_of_week(date_time_obj),
+            'date': date_value,
+            'time': time_value,
+            'operator_seller': transaction.get('operator_name', ''),
+            'application': transaction.get('operator_description', ''),
+            'amount': transaction.get('amount', 0),
+            'balance': transaction.get('balance', 0),
+            'card_number': self._format_card_number(transaction.get('card_number', '')),
+            'p2p': p2p_value,
+            'transaction_type': self.operation_types.get(
+                transaction.get('operation_type', ''),
+                transaction.get('operation_type', '')
+            ),
+            'currency': transaction.get('currency', 'UZS'),
+            'data_source': transaction.get('data_source', 'API'),
+            'category': self._get_category_from_description(transaction.get('description', ''))
+        }
     
     def _get_category_from_description(self, description):
         """Определить категорию по описанию"""
@@ -122,7 +200,7 @@ class ExcelExportService:
         else:
             return 'Прочее'
     
-    def export_transactions(self, transactions: List[Dict]) -> io.BytesIO:
+    def export_transactions(self, transactions: List[Dict[str, Any]]) -> io.BytesIO:
         """
         Экспорт транзакций в Excel с точным соответствием таблице сайта
         
@@ -145,63 +223,49 @@ class ExcelExportService:
             bottom=Side(style='thin')
         )
         
+        alignments = {
+            'left': Alignment(horizontal='left', vertical='center'),
+            'center': Alignment(horizontal='center', vertical='center'),
+            'right': Alignment(horizontal='right', vertical='center')
+        }
+
         # Создаем заголовки (строка 1)
-        for col_idx, column_name in enumerate(self.columns, 1):
-            cell = worksheet.cell(row=1, column=col_idx, value=column_name)
+        for col_idx, column in enumerate(self.column_config, 1):
+            cell = worksheet.cell(row=1, column=col_idx, value=column['header'])
             # Стиль заголовков
             cell.font = Font(bold=True, size=12)
-            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.alignment = alignments['center']
             cell.fill = PatternFill(start_color='E6E6FA', end_color='E6E6FA', fill_type='solid')
             cell.border = thin_border
-        
+
         # Заполняем данные транзакций
         for row_idx, transaction in enumerate(transactions, 2):  # Начинаем с 2-й строки
             transaction_data = self._get_transaction_data(transaction)
-            
-            for col_idx, value in enumerate(transaction_data, 1):
-                cell = worksheet.cell(row=row_idx, column=col_idx, value=value)
-                
-                # Выравнивание по типу данных
-                if col_idx in [8, 9]:  # Сумма, Остаток
-                    cell.alignment = Alignment(horizontal='right')
-                    if isinstance(value, (int, float)):
-                        cell.number_format = '#,##0.00'
-                elif col_idx in [1, 2, 3, 4, 5]:  # Номер чека, Дата и время, Дата, Время, Д.н.
-                    cell.alignment = Alignment(horizontal='center')
-                else:
-                    cell.alignment = Alignment(horizontal='left')
 
-                if isinstance(value, datetime):
-                    cell.number_format = 'dd.mm.yyyy hh:mm'
-                elif isinstance(value, date):
-                    cell.number_format = 'dd.mm.yyyy'
-                elif isinstance(value, time):
-                    cell.number_format = 'hh:mm'
+            for col_idx, column in enumerate(self.column_config, 1):
+                value = transaction_data.get(column['key'])
+                cell = worksheet.cell(row=row_idx, column=col_idx, value=value)
+
+                alignment_key = column.get('alignment', 'left')
+                cell.alignment = alignments.get(alignment_key, alignments['left'])
+
+                number_format = column.get('number_format')
+                if number_format:
+                    cell.number_format = number_format
+                else:
+                    if isinstance(value, datetime):
+                        cell.number_format = 'dd.mm.yyyy hh:mm'
+                    elif isinstance(value, date):
+                        cell.number_format = 'dd.mm.yyyy'
+                    elif isinstance(value, time):
+                        cell.number_format = 'hh:mm'
 
                 # Границы для всех ячеек
                 cell.border = thin_border
-        
+
         # Устанавливаем ширину колонок
-        column_widths = [
-            15,  # Номер чека
-            20,  # Дата и время
-            8,   # Д.н.
-            12,  # Дата
-            8,   # Время
-            20,  # Оператор/Продавец
-            15,  # Приложение
-            15,  # Сумма
-            15,  # Остаток
-            10,  # ПК
-            8,   # P2P
-            15,  # Тип транзакции
-            10,  # Валюта
-            15,  # Источник данных
-            15   # Категория
-        ]
-        
-        for col_idx, width in enumerate(column_widths, 1):
-            worksheet.column_dimensions[get_column_letter(col_idx)].width = width
+        for col_idx, column in enumerate(self.column_config, 1):
+            worksheet.column_dimensions[get_column_letter(col_idx)].width = column['width']
         
         # Сохраняем в BytesIO
         output = io.BytesIO()
