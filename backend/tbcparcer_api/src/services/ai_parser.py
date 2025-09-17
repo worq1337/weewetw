@@ -80,7 +80,10 @@ class LocalReceiptParser:
             parsed["card_number"] = card_number
 
         operator = self._extract_operator(lines)
-        if operator:
+        dictionary_fields = self._resolve_operator_with_dictionary(operator, lines)
+        if dictionary_fields:
+            parsed.update(dictionary_fields)
+        elif operator:
             parsed["operator"] = operator
 
         description = self._extract_description(lines)
@@ -88,6 +91,69 @@ class LocalReceiptParser:
             parsed["description"] = description
 
         return parsed
+
+    def _resolve_operator_with_dictionary(self, operator_value: Optional[str], lines: Sequence[str]) -> Dict[str, str]:
+        dictionary = get_operator_dictionary()
+        source_value = operator_value.strip() if operator_value else None
+
+        dictionary_entry = None
+        if operator_value:
+            dictionary_entry = dictionary.lookup(operator_value)
+
+        if not dictionary_entry:
+            for line in lines:
+                dictionary_entry = dictionary.lookup(line)
+                if dictionary_entry:
+                    if not source_value:
+                        source_value = line
+                    break
+
+        if not dictionary_entry:
+            return {}
+
+        resolved_alias = dictionary_entry['alias']
+        normalized_alias = dictionary_entry['normalized']
+        operator_brand = dictionary_entry.get('operator')
+        application_name = dictionary_entry.get('application')
+
+        enriched: Dict[str, str] = {
+            'operator': resolved_alias,
+            'operator_normalized': normalized_alias,
+            'operator_name': resolved_alias,
+        }
+
+        if source_value and source_value != resolved_alias:
+            enriched['operator_raw'] = source_value
+
+        if operator_brand:
+            enriched.setdefault('operator_brand', operator_brand)
+            enriched['operator_description'] = operator_brand
+
+        operator_metadata = dictionary.get_operator_metadata(operator_brand or resolved_alias)
+        if operator_metadata:
+            display_name = operator_metadata.get('display_name') or operator_metadata.get('name')
+            if isinstance(display_name, str) and display_name.strip():
+                enriched['operator_name'] = display_name.strip()
+
+            description = operator_metadata.get('description')
+            if isinstance(description, str) and description.strip():
+                enriched['operator_description'] = description.strip()
+
+            if not application_name:
+                applications = operator_metadata.get('applications')
+                if isinstance(applications, list) and applications:
+                    application_candidate = applications[0]
+                    if isinstance(application_candidate, str) and application_candidate.strip():
+                        application_name = application_candidate.strip()
+
+        if application_name:
+            enriched['operator_application'] = application_name
+            application_metadata = dictionary.get_application_metadata(application_name)
+            brand_from_app = application_metadata.get('operator') if isinstance(application_metadata, dict) else None
+            if isinstance(brand_from_app, str) and brand_from_app.strip():
+                enriched.setdefault('operator_brand', brand_from_app.strip())
+
+        return enriched
 
     def _extract_datetime(self, text: str) -> Optional[str]:
         for pattern, ordering in self._DATE_PATTERNS:
@@ -398,13 +464,19 @@ class AIParsingService:
         original_operator = str(parsed_data['operator']).strip()
         dictionary_entry = dictionary.lookup(original_operator)
 
+        application_name: Optional[str] = None
+
         if dictionary_entry:
             resolved_alias = dictionary_entry['alias']
-            resolved_brand = dictionary_entry['operator']
+            resolved_brand = dictionary_entry.get('operator')
+            application_name = dictionary_entry.get('application')
             if resolved_alias != original_operator:
                 parsed_data['operator_raw'] = original_operator
                 parsed_data['operator'] = resolved_alias
-            parsed_data.setdefault('operator_description', resolved_brand)
+            parsed_data.setdefault('operator', resolved_alias)
+            if resolved_brand:
+                parsed_data.setdefault('operator_brand', resolved_brand)
+                parsed_data['operator_description'] = resolved_brand
         else:
             resolved_alias = original_operator
             resolved_brand = None
@@ -414,6 +486,34 @@ class AIParsingService:
             parsed_data['operator_normalized'] = normalized_alias
 
         target_normalized = normalized_alias
+
+        operator_metadata = dictionary.get_operator_metadata(resolved_brand or resolved_alias)
+        if operator_metadata:
+            display_name = operator_metadata.get('display_name') or operator_metadata.get('name')
+            if isinstance(display_name, str) and display_name.strip():
+                parsed_data.setdefault('operator_name', display_name.strip())
+            else:
+                parsed_data.setdefault('operator_name', resolved_alias)
+
+            description = operator_metadata.get('description')
+            if isinstance(description, str) and description.strip():
+                parsed_data['operator_description'] = description.strip()
+
+            if not application_name:
+                applications = operator_metadata.get('applications')
+                if isinstance(applications, list) and applications:
+                    application_candidate = applications[0]
+                    if isinstance(application_candidate, str) and application_candidate.strip():
+                        application_name = application_candidate.strip()
+        else:
+            parsed_data.setdefault('operator_name', resolved_alias)
+
+        if application_name:
+            parsed_data.setdefault('operator_application', application_name)
+            application_metadata = dictionary.get_application_metadata(application_name)
+            brand_from_app = application_metadata.get('operator') if isinstance(application_metadata, dict) else None
+            if isinstance(brand_from_app, str) and brand_from_app.strip():
+                parsed_data.setdefault('operator_brand', brand_from_app.strip())
 
         normalized_operators = []
         for operator in operators_list:

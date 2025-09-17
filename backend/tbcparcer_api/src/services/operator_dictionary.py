@@ -2,7 +2,7 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import re
 
 _NORMALIZE_PATTERN = re.compile(r'[^A-Z0-9]+')
@@ -20,6 +20,9 @@ class OperatorDictionary:
         self._path = Path(dictionary_path)
         self._lock = threading.Lock()
         self._entries: List[Dict[str, str]] = []
+        self._operators: Dict[str, Dict[str, Any]] = {}
+        self._applications: Dict[str, Dict[str, Any]] = {}
+        self._version: Optional[Any] = None
         self.reload()
 
     def _load_file(self) -> Dict:
@@ -29,38 +32,93 @@ class OperatorDictionary:
     def reload(self) -> int:
         """Reload dictionary from file and return number of entries."""
         data = self._load_file()
+
         raw_aliases = data.get('aliases', {})
+        raw_operator_map = data.get('operators', {})
+        raw_application_map = data.get('applications', {})
+
+        operator_map: Dict[str, Dict[str, Any]] = {}
+        if isinstance(raw_operator_map, dict):
+            for name, metadata in raw_operator_map.items():
+                if not isinstance(name, str):
+                    continue
+                cleaned_name = name.strip()
+                if not cleaned_name:
+                    continue
+                if isinstance(metadata, dict):
+                    operator_map[cleaned_name] = metadata.copy()
+                else:
+                    operator_map[cleaned_name] = {'display_name': str(metadata)}
+
+        application_map: Dict[str, Dict[str, Any]] = {}
+        if isinstance(raw_application_map, dict):
+            for name, metadata in raw_application_map.items():
+                if not isinstance(name, str):
+                    continue
+                cleaned_name = name.strip()
+                if not cleaned_name:
+                    continue
+                if isinstance(metadata, dict):
+                    application_map[cleaned_name] = metadata.copy()
+                else:
+                    application_map[cleaned_name] = {'name': str(metadata)}
 
         if isinstance(raw_aliases, list):
-            items = []
+            items: List[Dict[str, Any]] = []
             for item in raw_aliases:
                 if not isinstance(item, dict):
                     continue
                 alias = item.get('alias') or item.get('pattern')
                 operator = item.get('operator') or item.get('value')
+                application = item.get('application') or item.get('app')
                 if alias and operator:
-                    items.append((str(alias), str(operator)))
+                    entry: Dict[str, Any] = {
+                        'alias': str(alias),
+                        'operator': str(operator),
+                    }
+                    if application:
+                        entry['application'] = str(application)
+                    items.append(entry)
         elif isinstance(raw_aliases, dict):
-            items = [(str(alias), str(operator)) for alias, operator in raw_aliases.items()]
+            items = [
+                {
+                    'alias': str(alias),
+                    'operator': str(operator),
+                }
+                for alias, operator in raw_aliases.items()
+                if alias and operator
+            ]
         else:
             raise ValueError('Invalid dictionary format: "aliases" must be dict or list')
 
         entries: List[Dict[str, str]] = []
-        for alias, operator in items:
-            cleaned_alias = alias.strip()
-            cleaned_operator = operator.strip()
+        for item in items:
+            cleaned_alias = item['alias'].strip()
+            cleaned_operator = item['operator'].strip()
             if not cleaned_alias or not cleaned_operator:
                 continue
-            entries.append({
+
+            entry: Dict[str, str] = {
                 'alias': cleaned_alias,
                 'operator': cleaned_operator,
-                'normalized': _normalize(cleaned_alias)
-            })
+                'normalized': _normalize(cleaned_alias),
+            }
+
+            application_value = item.get('application')
+            if application_value:
+                cleaned_application = str(application_value).strip()
+                if cleaned_application:
+                    entry['application'] = cleaned_application
+
+            entries.append(entry)
 
         entries.sort(key=lambda entry: len(entry['normalized']), reverse=True)
 
         with self._lock:
             self._entries = entries
+            self._operators = operator_map
+            self._applications = application_map
+            self._version = data.get('version')
 
         return len(entries)
 
@@ -98,6 +156,31 @@ class OperatorDictionary:
     def size(self) -> int:
         with self._lock:
             return len(self._entries)
+
+    def get_operator_metadata(self, name: Optional[str]) -> Dict[str, Any]:
+        if not name:
+            return {}
+        key = str(name).strip()
+        if not key:
+            return {}
+        with self._lock:
+            metadata = self._operators.get(key)
+            return metadata.copy() if isinstance(metadata, dict) else {}
+
+    def get_application_metadata(self, name: Optional[str]) -> Dict[str, Any]:
+        if not name:
+            return {}
+        key = str(name).strip()
+        if not key:
+            return {}
+        with self._lock:
+            metadata = self._applications.get(key)
+            return metadata.copy() if isinstance(metadata, dict) else {}
+
+    @property
+    def version(self) -> Optional[Any]:
+        with self._lock:
+            return self._version
 
     @property
     def path(self) -> Path:
