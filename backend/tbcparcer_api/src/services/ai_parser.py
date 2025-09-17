@@ -2,7 +2,7 @@ import json
 import os
 import re
 from datetime import datetime
-from typing import Dict, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 import openai
 
@@ -10,6 +10,19 @@ from src.services.operator_dictionary import (
     get_operator_dictionary,
     normalize_operator_value,
 )
+
+
+def _sanitize_string_list(value) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    sanitized: List[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        cleaned = item.strip()
+        if cleaned and cleaned not in sanitized:
+            sanitized.append(cleaned)
+    return sanitized
 
 
 class LocalReceiptParser:
@@ -139,6 +152,18 @@ class LocalReceiptParser:
             if isinstance(description, str) and description.strip():
                 enriched['operator_description'] = description.strip()
 
+            category = operator_metadata.get('category')
+            if isinstance(category, str) and category.strip():
+                enriched['operator_category'] = category.strip()
+
+            country = operator_metadata.get('country')
+            if isinstance(country, str) and country.strip():
+                enriched['operator_country'] = country.strip()
+
+            tags = _sanitize_string_list(operator_metadata.get('tags'))
+            if tags:
+                enriched['operator_tags'] = tags
+
             if not application_name:
                 applications = operator_metadata.get('applications')
                 if isinstance(applications, list) and applications:
@@ -152,6 +177,14 @@ class LocalReceiptParser:
             brand_from_app = application_metadata.get('operator') if isinstance(application_metadata, dict) else None
             if isinstance(brand_from_app, str) and brand_from_app.strip():
                 enriched.setdefault('operator_brand', brand_from_app.strip())
+
+            app_tags = _sanitize_string_list(application_metadata.get('tags')) if isinstance(application_metadata, dict) else []
+            if app_tags:
+                enriched['operator_application_tags'] = app_tags
+
+            app_platforms = _sanitize_string_list(application_metadata.get('platforms')) if isinstance(application_metadata, dict) else []
+            if app_platforms:
+                enriched['operator_application_platforms'] = app_platforms
 
         return enriched
 
@@ -499,6 +532,18 @@ class AIParsingService:
             if isinstance(description, str) and description.strip():
                 parsed_data['operator_description'] = description.strip()
 
+            category = operator_metadata.get('category')
+            if isinstance(category, str) and category.strip():
+                parsed_data.setdefault('operator_category', category.strip())
+
+            country = operator_metadata.get('country')
+            if isinstance(country, str) and country.strip():
+                parsed_data.setdefault('operator_country', country.strip())
+
+            tags = _sanitize_string_list(operator_metadata.get('tags'))
+            if tags:
+                parsed_data.setdefault('operator_tags', tags)
+
             if not application_name:
                 applications = operator_metadata.get('applications')
                 if isinstance(applications, list) and applications:
@@ -514,6 +559,15 @@ class AIParsingService:
             brand_from_app = application_metadata.get('operator') if isinstance(application_metadata, dict) else None
             if isinstance(brand_from_app, str) and brand_from_app.strip():
                 parsed_data.setdefault('operator_brand', brand_from_app.strip())
+
+            if isinstance(application_metadata, dict):
+                app_tags = _sanitize_string_list(application_metadata.get('tags'))
+                if app_tags:
+                    parsed_data.setdefault('operator_application_tags', app_tags)
+
+                app_platforms = _sanitize_string_list(application_metadata.get('platforms'))
+                if app_platforms:
+                    parsed_data.setdefault('operator_application_platforms', app_platforms)
 
         normalized_operators = []
         for operator in operators_list:

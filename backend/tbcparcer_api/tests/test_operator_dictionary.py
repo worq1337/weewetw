@@ -25,8 +25,10 @@ class OperatorDictionaryTests(unittest.TestCase):
         })
         self.dictionary = OperatorDictionary(self.dictionary_path)
 
-    def _write_aliases(self, mapping) -> None:
+    def _write_aliases(self, mapping, sources=None) -> None:
         payload = {'aliases': mapping}
+        if sources is not None:
+            payload['sources'] = sources
         self.dictionary_path.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
 
     def test_lookup_resolves_partial_match(self):
@@ -52,6 +54,24 @@ class OperatorDictionaryTests(unittest.TestCase):
 
         fallback = normalize_operator_value('Unknown operator 123', self.dictionary)
         self.assertEqual(fallback, 'UNKNOWN OPERATOR 123')
+
+    def test_checksum_updates_and_sources_exposed(self):
+        original_checksum = self.dictionary.checksum()
+        self.assertIsInstance(original_checksum, str)
+
+        self._write_aliases(
+            {'Another Alias': 'Another'},
+            sources=[{'url': 'https://example.com', 'label': 'Example'}],
+        )
+        self.dictionary.reload()
+
+        updated_checksum = self.dictionary.checksum()
+        self.assertIsInstance(updated_checksum, str)
+        self.assertNotEqual(updated_checksum, original_checksum)
+        self.assertEqual(
+            self.dictionary.sources(),
+            [{'url': 'https://example.com', 'label': 'Example'}],
+        )
 
 
 if __name__ == '__main__':

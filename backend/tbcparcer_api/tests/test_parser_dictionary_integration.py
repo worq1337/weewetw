@@ -19,12 +19,16 @@ TEST_DICTIONARY = {
             "display_name": "Humans",
             "applications": ["Humans"],
             "description": "Humans fintech",
+            "category": "digital_wallet",
+            "country": "UZ",
+            "tags": ["wallet", "telecom"],
         }
     },
     "applications": {
         "Humans": {
             "operator": "Humans",
             "platforms": ["ios", "android"],
+            "tags": ["wallet", "p2p"],
         }
     },
     "aliases": [
@@ -58,6 +62,11 @@ def test_local_parser_uses_dictionary_metadata():
     assert result['operator_description'] == 'Humans fintech'
     assert result['operator_application'] == 'Humans'
     assert result['operator_normalized'] == 'UPAY P2P UZ'
+    assert result['operator_category'] == 'digital_wallet'
+    assert result['operator_country'] == 'UZ'
+    assert result['operator_tags'] == ['wallet', 'telecom']
+    assert result['operator_application_tags'] == ['wallet', 'p2p']
+    assert result['operator_application_platforms'] == ['ios', 'android']
     assert 'operator_raw' not in result
 
 
@@ -72,3 +81,8 @@ def test_enhance_with_operator_info_preserves_application():
     assert enhanced['operator_application'] == 'Humans'
     assert enhanced['operator_brand'] == 'Humans'
     assert enhanced['operator_description'] == 'Humans fintech'
+    assert enhanced['operator_category'] == 'digital_wallet'
+    assert enhanced['operator_country'] == 'UZ'
+    assert enhanced['operator_tags'] == ['wallet', 'telecom']
+    assert enhanced['operator_application_tags'] == ['wallet', 'p2p']
+    assert enhanced['operator_application_platforms'] == ['ios', 'android']
