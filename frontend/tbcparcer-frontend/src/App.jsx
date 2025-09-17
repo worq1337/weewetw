@@ -8,7 +8,7 @@ import TrashPage from './components/TrashPage'
 import AddReceiptPage from './components/AddReceiptPage'
 import SettingsPage from './components/SettingsPage'
 import './App.css'
-import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js'
+import { apiFetch, DEFAULT_TELEGRAM_ID, isDefaultTelegramConfigured } from '@/lib/api.js'
 
 const transformTransaction = (transaction) => {
   if (!transaction) {
@@ -76,7 +76,17 @@ function App() {
   const [currentPage, setCurrentPage] = useState('main') // 'main' или 'trash'
   const [error, setError] = useState(null)
 
+  const telegramConfigured = isDefaultTelegramConfigured()
+
   const loadTransactions = useCallback(async () => {
+    if (!telegramConfigured) {
+      setLoading(false)
+      setTransactions([])
+      setFilteredTransactions([])
+      setError('Укажите VITE_DEFAULT_TELEGRAM_ID в настройках фронтенда, чтобы загрузить данные из API.')
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
@@ -101,7 +111,7 @@ function App() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [telegramConfigured])
 
   useEffect(() => {
     loadTransactions()
@@ -162,6 +172,10 @@ function App() {
   }
 
   const handleTransactionAdded = (transactionFromApi) => {
+    if (!telegramConfigured) {
+      return
+    }
+
     const transformed = transformTransaction(transactionFromApi)
 
     if (!transformed) {

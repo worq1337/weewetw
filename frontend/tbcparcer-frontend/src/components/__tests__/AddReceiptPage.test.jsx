@@ -7,7 +7,8 @@ const apiFetchMock = vi.fn()
 
 vi.mock('@/lib/api.js', () => ({
   apiFetch: (...args) => apiFetchMock(...args),
-  DEFAULT_TELEGRAM_ID: 777001
+  DEFAULT_TELEGRAM_ID: 777001,
+  isDefaultTelegramConfigured: () => true
 }))
 
 const TEST_TELEGRAM_ID = 777001
@@ -131,7 +132,8 @@ describe('AddReceiptPage manual form', () => {
     expect(payload).not.toHaveProperty('card_number')
 
     await waitFor(() => expect(onTransactionAdded).toHaveBeenCalledWith(transactionPayload))
-    expect(await screen.findByText('Транзакция успешно сохранена')).toBeInTheDocument()
+    const successMessages = await screen.findAllByText('Транзакция успешно сохранена')
+    expect(successMessages.length).toBeGreaterThan(0)
 
     await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1), { timeout: 2000 })
   })

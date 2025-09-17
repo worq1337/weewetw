@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useLayoutEffect, useMemo } fr
 import { Settings, GripVertical, Edit3, Check, X, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import ColumnSettings from './ColumnSettings'
-import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js'
+import { apiFetch, DEFAULT_TELEGRAM_ID, isDefaultTelegramConfigured } from '@/lib/api.js'
 import { formatDateOnly, formatDateTime, formatTimeOnly, getDayIndex } from '@/lib/datetime.js'
 
 // Ключи для сохранения настроек в localStorage
@@ -243,8 +243,13 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   const tableRef = useRef(null)
   const measurementCanvasRef = useRef(null)
+  const telegramConfigured = isDefaultTelegramConfigured()
 
   const persistColumnAlignment = useCallback(async (column, alignment) => {
+    if (!telegramConfigured) {
+      return
+    }
+
     try {
       const response = await apiFetch(`/api/formatting/columns/${encodeURIComponent(column)}`, {
         method: 'PUT',
@@ -263,7 +268,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     } catch (error) {
       console.warn('Ошибка при сохранении выравнивания:', error)
     }
-  }, [])
+  }, [telegramConfigured])
 
   const measureText = useCallback((text, font, fallbackCharWidth) => {
     const normalized = typeof text === 'string' ? text : String(text ?? '')
@@ -439,6 +444,10 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     let cancelled = false
 
     const loadColumnFormatting = async () => {
+      if (!telegramConfigured) {
+        return
+      }
+
       try {
         const response = await apiFetch(`/api/formatting/columns?telegram_id=${DEFAULT_TELEGRAM_ID}`)
         if (!response.ok) {
@@ -486,7 +495,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [telegramConfigured])
 
   // Обработка редактирования ячейки
   const handleCellEdit = (rowId, column, currentValue) => {
