@@ -8,6 +8,8 @@ const TrashPage = ({ onBack }) => {
   const [deletedTransactions, setDeletedTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [showConfirmModal, setShowConfirmModal] = useState(null)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [statusMessage, setStatusMessage] = useState('')
 
   // Загрузка удаленных транзакций
   useEffect(() => {
@@ -17,15 +19,19 @@ const TrashPage = ({ onBack }) => {
   const fetchDeletedTransactions = async () => {
     try {
       setLoading(true)
+      setErrorMessage('')
       const response = await apiFetch('/api/trash/transactions')
-      if (response.ok) {
-        const data = await response.json()
-        setDeletedTransactions(data.transactions || [])
-      } else {
-        console.error('Ошибка при загрузке корзины')
+      if (!response.ok) {
+        throw new Error('Не удалось загрузить корзину')
       }
+
+      const data = await response.json()
+      setDeletedTransactions(Array.isArray(data.transactions) ? data.transactions : [])
+      setStatusMessage('')
     } catch (error) {
       console.error('Ошибка при загрузке корзины:', error)
+      setDeletedTransactions([])
+      setErrorMessage(error.message || 'Ошибка при загрузке корзины')
     } finally {
       setLoading(false)
     }
@@ -41,17 +47,18 @@ const TrashPage = ({ onBack }) => {
         }
       })
       
-      if (response.ok) {
-        // Удаляем транзакцию из списка корзины
-        setDeletedTransactions(prev => prev.filter(t => t.id !== transactionId))
-        alert('Транзакция успешно восстановлена')
-      } else {
-        console.error('Ошибка при восстановлении транзакции')
-        alert('Ошибка при восстановлении транзакции')
+      if (!response.ok) {
+        throw new Error('Ошибка при восстановлении транзакции')
       }
+
+      setDeletedTransactions(prev => prev.filter(t => t.id !== transactionId))
+      setShowConfirmModal(null)
+      setErrorMessage('')
+      setStatusMessage('Транзакция успешно восстановлена')
     } catch (error) {
       console.error('Ошибка при восстановлении транзакции:', error)
-      alert('Ошибка при восстановлении транзакции')
+      setStatusMessage('')
+      setErrorMessage(error.message || 'Ошибка при восстановлении транзакции')
     }
   }
 
@@ -65,18 +72,18 @@ const TrashPage = ({ onBack }) => {
         }
       })
       
-      if (response.ok) {
-        // Удаляем транзакцию из списка корзины
-        setDeletedTransactions(prev => prev.filter(t => t.id !== transactionId))
-        setShowConfirmModal(null)
-        alert('Транзакция окончательно удалена')
-      } else {
-        console.error('Ошибка при окончательном удалении транзакции')
-        alert('Ошибка при окончательном удалении транзакции')
+      if (!response.ok) {
+        throw new Error('Ошибка при окончательном удалении транзакции')
       }
+
+      setDeletedTransactions(prev => prev.filter(t => t.id !== transactionId))
+      setShowConfirmModal(null)
+      setErrorMessage('')
+      setStatusMessage('Транзакция окончательно удалена')
     } catch (error) {
       console.error('Ошибка при окончательном удалении транзакции:', error)
-      alert('Ошибка при окончательном удалении транзакции')
+      setStatusMessage('')
+      setErrorMessage(error.message || 'Ошибка при окончательном удалении транзакции')
     }
   }
 
@@ -91,16 +98,17 @@ const TrashPage = ({ onBack }) => {
           }
         })
         
-        if (response.ok) {
-          setDeletedTransactions([])
-          alert('Корзина очищена')
-        } else {
-          console.error('Ошибка при очистке корзины')
-          alert('Ошибка при очистке корзины')
+        if (!response.ok) {
+          throw new Error('Ошибка при очистке корзины')
         }
+
+        setDeletedTransactions([])
+        setErrorMessage('')
+        setStatusMessage('Корзина очищена')
       } catch (error) {
         console.error('Ошибка при очистке корзины:', error)
-        alert('Ошибка при очистке корзины')
+        setStatusMessage('')
+        setErrorMessage(error.message || 'Ошибка при очистке корзины')
       }
     }
   }
@@ -142,10 +150,10 @@ const TrashPage = ({ onBack }) => {
             ({deletedTransactions.length} транзакций)
           </span>
         </div>
-        
+
         {deletedTransactions.length > 0 && (
-          <Button 
-            variant="destructive" 
+          <Button
+            variant="destructive"
             onClick={handleEmptyTrash}
             className="text-sm"
           >
@@ -154,6 +162,17 @@ const TrashPage = ({ onBack }) => {
           </Button>
         )}
       </div>
+
+      {(errorMessage || statusMessage) && (
+        <div
+          className={`mb-4 rounded-lg border p-4 text-sm ${errorMessage
+            ? 'border-destructive/40 bg-destructive/10 text-destructive'
+            : 'border-emerald-400/60 bg-emerald-50 text-emerald-700'
+          }`}
+        >
+          {errorMessage || statusMessage}
+        </div>
+      )}
 
       {/* Список удаленных транзакций */}
       {deletedTransactions.length === 0 ? (
