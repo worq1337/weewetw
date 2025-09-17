@@ -19,6 +19,10 @@ const ColumnSettings = ({ settings, onSettingsChange, onClose }) => {
     }
   }, [onClose])
 
+  useEffect(() => {
+    setAlignment(settings.alignment || 'left')
+  }, [settings.alignment])
+
   const handleAlignmentChange = (newAlignment) => {
     setAlignment(newAlignment)
     onSettingsChange({

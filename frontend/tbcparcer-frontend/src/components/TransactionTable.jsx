@@ -2,10 +2,21 @@ import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react
 import { Settings, GripVertical, Edit3, Check, X, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import ColumnSettings from './ColumnSettings'
-import { apiFetch } from '@/lib/api.js'
+import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js'
 
-// Ключ для сохранения настроек в localStorage
-const STORAGE_KEY = 'tbcparcer_table_settings'
+// Ключи для сохранения настроек в localStorage
+const STORAGE_KEY_PREFIX = 'tbcparcer_table_settings'
+const LEGACY_STORAGE_KEY = 'tbcparcer_table_settings'
+
+const buildStorageKey = (telegramId) => {
+  if (!telegramId) {
+    return `${STORAGE_KEY_PREFIX}_default`
+  }
+
+  return `${STORAGE_KEY_PREFIX}_${String(telegramId)}`
+}
+
+const STORAGE_KEY = buildStorageKey(DEFAULT_TELEGRAM_ID)
 
 const COLUMN_LABELS = {
   receipt_number: 'Номер чека',
@@ -294,6 +305,9 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
   const saveSettingsToStorage = (settings) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+      if (STORAGE_KEY !== LEGACY_STORAGE_KEY) {
+        localStorage.removeItem(LEGACY_STORAGE_KEY)
+      }
     } catch (error) {
       console.warn('Не удалось сохранить настройки таблицы:', error)
     }
@@ -301,12 +315,25 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   const loadSettingsFromStorage = () => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      return saved ? JSON.parse(saved) : null
+      const storedValue = localStorage.getItem(STORAGE_KEY)
+      if (storedValue) {
+        return JSON.parse(storedValue)
+      }
+
+      if (STORAGE_KEY !== LEGACY_STORAGE_KEY) {
+        const legacyValue = localStorage.getItem(LEGACY_STORAGE_KEY)
+        if (legacyValue) {
+          localStorage.setItem(STORAGE_KEY, legacyValue)
+          localStorage.removeItem(LEGACY_STORAGE_KEY)
+          return JSON.parse(legacyValue)
+        }
+      }
     } catch (error) {
       console.warn('Не удалось загрузить настройки таблицы:', error)
       return null
     }
+
+    return null
   }
 
   const applySettings = (settings, { markUserAdjusted = true } = {}) => {
