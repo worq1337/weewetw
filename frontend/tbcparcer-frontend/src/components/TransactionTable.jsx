@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react'
+import { useState, useRef, useEffect, useCallback, useLayoutEffect, useMemo } from 'react'
 import { Settings, GripVertical, Edit3, Check, X, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import ColumnSettings from './ColumnSettings'
@@ -88,6 +88,40 @@ const TIME_FORMATTER = new Intl.DateTimeFormat('ru-RU', {
   hour: '2-digit',
   minute: '2-digit'
 })
+
+const createDefaultSettings = () => ({
+  columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
+  columnOrder: [...DEFAULT_COLUMN_ORDER],
+  columnSettings: {},
+  cellColors: {},
+  version: '1.0'
+})
+
+const readSettingsFromStorage = () => {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return null
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(STORAGE_KEY)
+    if (storedValue) {
+      return JSON.parse(storedValue)
+    }
+
+    if (STORAGE_KEY !== LEGACY_STORAGE_KEY) {
+      const legacyValue = window.localStorage.getItem(LEGACY_STORAGE_KEY)
+      if (legacyValue) {
+        window.localStorage.setItem(STORAGE_KEY, legacyValue)
+        window.localStorage.removeItem(LEGACY_STORAGE_KEY)
+        return JSON.parse(legacyValue)
+      }
+    }
+  } catch (error) {
+    console.warn('Не удалось загрузить настройки таблицы:', error)
+  }
+
+  return null
+}
 
 const formatCellValue = (transaction, column) => {
   if (!transaction) {
@@ -202,12 +236,23 @@ const formatCellValue = (transaction, column) => {
 }
 
 const TransactionTable = ({ transactions, onTransactionUpdate }) => {
+  const initialSettingsRef = useRef(readSettingsFromStorage())
+
   const [editingCell, setEditingCell] = useState(null)
   const [editValue, setEditValue] = useState('')
-  const [columnWidths, setColumnWidths] = useState({ ...DEFAULT_COLUMN_WIDTHS })
-  const [columnOrder, setColumnOrder] = useState([...DEFAULT_COLUMN_ORDER])
-  const [columnSettings, setColumnSettings] = useState({})
-  const [cellColors, setCellColors] = useState({})
+  const [columnWidths, setColumnWidths] = useState(() => ({
+    ...DEFAULT_COLUMN_WIDTHS,
+    ...(initialSettingsRef.current?.columnWidths ?? {})
+  }))
+  const [columnOrder, setColumnOrder] = useState(() => (
+    initialSettingsRef.current?.columnOrder ?? [...DEFAULT_COLUMN_ORDER]
+  ))
+  const [columnSettings, setColumnSettings] = useState(() => (
+    initialSettingsRef.current?.columnSettings ?? {}
+  ))
+  const [cellColors, setCellColors] = useState(() => (
+    initialSettingsRef.current?.cellColors ?? {}
+  ))
   const [showColumnSettings, setShowColumnSettings] = useState(null)
   const [showColorPicker, setShowColorPicker] = useState(null)
   const [draggedColumn, setDraggedColumn] = useState(null)
@@ -217,7 +262,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   const tableRef = useRef(null)
   const measurementCanvasRef = useRef(null)
-  const userAdjustedColumnsRef = useRef(new Set())
+  const userAdjustedColumnsRef = useRef(new Set(Object.keys(initialSettingsRef.current?.columnWidths ?? {})))
 
   const measureText = useCallback((text, font, fallbackCharWidth) => {
     const normalized = typeof text === 'string' ? text : String(text ?? '')
@@ -303,40 +348,21 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   // Функции для работы с localStorage
   const saveSettingsToStorage = (settings) => {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return
+    }
+
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
       if (STORAGE_KEY !== LEGACY_STORAGE_KEY) {
-        localStorage.removeItem(LEGACY_STORAGE_KEY)
+        window.localStorage.removeItem(LEGACY_STORAGE_KEY)
       }
     } catch (error) {
       console.warn('Не удалось сохранить настройки таблицы:', error)
     }
   }
 
-  const loadSettingsFromStorage = () => {
-    try {
-      const storedValue = localStorage.getItem(STORAGE_KEY)
-      if (storedValue) {
-        return JSON.parse(storedValue)
-      }
-
-      if (STORAGE_KEY !== LEGACY_STORAGE_KEY) {
-        const legacyValue = localStorage.getItem(LEGACY_STORAGE_KEY)
-        if (legacyValue) {
-          localStorage.setItem(STORAGE_KEY, legacyValue)
-          localStorage.removeItem(LEGACY_STORAGE_KEY)
-          return JSON.parse(legacyValue)
-        }
-      }
-    } catch (error) {
-      console.warn('Не удалось загрузить настройки таблицы:', error)
-      return null
-    }
-
-    return null
-  }
-
-  const applySettings = (settings, { markUserAdjusted = true } = {}) => {
+  const applySettings = useCallback((settings, { markUserAdjusted = true } = {}) => {
     if (settings.columnWidths) {
       setColumnWidths(prev => ({
         ...prev,
@@ -360,31 +386,17 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     if (settings.cellColors) {
       setCellColors(settings.cellColors)
     }
-  }
+  }, [setCellColors, setColumnOrder, setColumnSettings, setColumnWidths])
 
   // Сброс настроек к значениям по умолчанию
   const resetToDefaults = () => {
     userAdjustedColumnsRef.current.clear()
 
-    const defaultSettings = {
-      columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
-      columnOrder: [...DEFAULT_COLUMN_ORDER],
-      columnSettings: {},
-      cellColors: {},
-      version: '1.0'
-    }
+    const defaultSettings = createDefaultSettings()
 
     applySettings(defaultSettings, { markUserAdjusted: false })
     saveSettingsToStorage(defaultSettings)
   }
-
-  // Загрузка настроек при монтировании компонента
-  useEffect(() => {
-    const savedSettings = loadSettingsFromStorage()
-    if (savedSettings) {
-      applySettings(savedSettings)
-    }
-  }, [])
 
   // Автоматическое сохранение при изменении настроек
   useEffect(() => {
@@ -560,7 +572,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     const colorKey = `${rowId}-${column}`
     const backgroundColor = cellColors[colorKey]
     const alignment = getCellAlignment(column)
-    
+
     return {
       backgroundColor: backgroundColor || 'transparent',
       textAlign: alignment,
@@ -570,10 +582,20 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     }
   }
 
+  const totalTableWidth = useMemo(() => (
+    columnOrder.reduce((acc, column) => acc + (columnWidths[column] ?? MIN_COLUMN_WIDTH), 0)
+  ), [columnOrder, columnWidths])
+
   return (
     <div className="border border-border rounded-lg overflow-hidden bg-card relative">
       <div className="overflow-x-auto" ref={tableRef}>
-        <table className="w-full professional-table">
+        <table
+          className="professional-table"
+          style={{
+            width: `${totalTableWidth}px`,
+            minWidth: '100%'
+          }}
+        >
           <thead>
             <tr className="border-b border-border bg-muted/50">
               {columnOrder.map((column) => (
