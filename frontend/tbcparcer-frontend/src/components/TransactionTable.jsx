@@ -45,6 +45,8 @@ const OPERATION_TYPE_LABELS = {
   cancel: 'Отмена'
 }
 
+const SETTINGS_VERSION = '1.1'
+
 const DEFAULT_COLUMN_WIDTHS = {
   receipt_number: 120,
   date_time: 150,
@@ -86,7 +88,8 @@ const createDefaultSettings = () => ({
   columnOrder: [...DEFAULT_COLUMN_ORDER],
   columnSettings: {},
   cellColors: {},
-  version: '1.0'
+  manuallyResizedColumns: [],
+  version: SETTINGS_VERSION
 })
 
 const readSettingsFromStorage = () => {
@@ -97,7 +100,12 @@ const readSettingsFromStorage = () => {
   try {
     const storedValue = window.localStorage.getItem(STORAGE_KEY)
     if (storedValue) {
-      return JSON.parse(storedValue)
+      const parsed = JSON.parse(storedValue)
+      if (!parsed.manuallyResizedColumns) {
+        parsed.manuallyResizedColumns = []
+      }
+      parsed.version = SETTINGS_VERSION
+      return parsed
     }
 
     if (STORAGE_KEY !== LEGACY_STORAGE_KEY) {
@@ -105,7 +113,12 @@ const readSettingsFromStorage = () => {
       if (legacyValue) {
         window.localStorage.setItem(STORAGE_KEY, legacyValue)
         window.localStorage.removeItem(LEGACY_STORAGE_KEY)
-        return JSON.parse(legacyValue)
+        const parsedLegacy = JSON.parse(legacyValue)
+        if (!parsedLegacy.manuallyResizedColumns) {
+          parsedLegacy.manuallyResizedColumns = []
+        }
+        parsedLegacy.version = SETTINGS_VERSION
+        return parsedLegacy
       }
     }
   } catch (error) {
@@ -205,18 +218,21 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   const [editingCell, setEditingCell] = useState(null)
   const [editValue, setEditValue] = useState('')
+  const [columnOrder, setColumnOrder] = useState(() => (
+    initialSettingsRef.current?.columnOrder ?? [...DEFAULT_COLUMN_ORDER]
+  ))
   const [columnWidths, setColumnWidths] = useState(() => ({
     ...DEFAULT_COLUMN_WIDTHS,
     ...(initialSettingsRef.current?.columnWidths ?? {})
   }))
-  const [columnOrder, setColumnOrder] = useState(() => (
-    initialSettingsRef.current?.columnOrder ?? [...DEFAULT_COLUMN_ORDER]
-  ))
   const [columnSettings, setColumnSettings] = useState(() => (
     initialSettingsRef.current?.columnSettings ?? {}
   ))
   const [cellColors, setCellColors] = useState(() => (
     initialSettingsRef.current?.cellColors ?? {}
+  ))
+  const [manuallyResizedColumns, setManuallyResizedColumns] = useState(() => (
+    new Set(initialSettingsRef.current?.manuallyResizedColumns ?? [])
   ))
   const [showColumnSettings, setShowColumnSettings] = useState(null)
   const [showColorPicker, setShowColorPicker] = useState(null)
@@ -227,7 +243,6 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   const tableRef = useRef(null)
   const measurementCanvasRef = useRef(null)
-  const userAdjustedColumnsRef = useRef(new Set(Object.keys(initialSettingsRef.current?.columnWidths ?? {})))
 
   const measureText = useCallback((text, font, fallbackCharWidth) => {
     const normalized = typeof text === 'string' ? text : String(text ?? '')
@@ -262,7 +277,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
         return
       }
 
-      if (!includeManuallyAdjusted && userAdjustedColumnsRef.current.has(column)) {
+      if (!includeManuallyAdjusted && manuallyResizedColumns.has(column)) {
         return
       }
 
@@ -288,7 +303,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     })
 
     return Object.keys(calculatedWidths).length > 0 ? calculatedWidths : null
-  }, [columnOrder, measureText, transactions])
+  }, [columnOrder, manuallyResizedColumns, measureText, transactions])
 
   useLayoutEffect(() => {
     const autoWidths = computeAutoWidths()
@@ -335,11 +350,25 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
       }))
 
       if (markUserAdjusted) {
-        const updatedSet = new Set(userAdjustedColumnsRef.current)
-        Object.keys(settings.columnWidths).forEach(column => {
-          updatedSet.add(column)
+        setManuallyResizedColumns(prev => {
+          const next = new Set(prev)
+          Object.keys(settings.columnWidths).forEach(column => {
+            next.add(column)
+          })
+          return next
         })
-        userAdjustedColumnsRef.current = updatedSet
+      } else {
+        setManuallyResizedColumns(prev => {
+          if (prev.size === 0) {
+            return prev
+          }
+
+          const next = new Set(prev)
+          Object.keys(settings.columnWidths).forEach(column => {
+            next.delete(column)
+          })
+          return next
+        })
       }
     }
     if (settings.columnOrder) {
@@ -351,11 +380,14 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     if (settings.cellColors) {
       setCellColors(settings.cellColors)
     }
+    if (settings.manuallyResizedColumns) {
+      setManuallyResizedColumns(new Set(settings.manuallyResizedColumns))
+    }
   }, [setCellColors, setColumnOrder, setColumnSettings, setColumnWidths])
 
   // Сброс настроек к значениям по умолчанию
   const resetToDefaults = () => {
-    userAdjustedColumnsRef.current.clear()
+    setManuallyResizedColumns(new Set())
 
     const defaultSettings = createDefaultSettings()
 
@@ -370,10 +402,11 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
       columnOrder,
       columnSettings,
       cellColors,
-      version: '1.0'
+      manuallyResizedColumns: Array.from(manuallyResizedColumns),
+      version: SETTINGS_VERSION
     }
     saveSettingsToStorage(settings)
-  }, [columnWidths, columnOrder, columnSettings, cellColors])
+  }, [cellColors, columnOrder, columnSettings, columnWidths, manuallyResizedColumns])
 
   // Обработка редактирования ячейки
   const handleCellEdit = (rowId, column, currentValue) => {
@@ -429,7 +462,15 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
   // Обработка изменения размера колонок
   const handleResizeStart = (e, column) => {
     e.preventDefault()
-    userAdjustedColumnsRef.current.add(column)
+    setManuallyResizedColumns((previous) => {
+      if (previous.has(column)) {
+        return previous
+      }
+
+      const next = new Set(previous)
+      next.add(column)
+      return next
+    })
     setResizingColumn(column)
     setResizeStartX(e.clientX)
     setResizeStartWidth(columnWidths[column])
@@ -523,7 +564,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
       return
     }
 
-    userAdjustedColumnsRef.current.clear()
+    setManuallyResizedColumns(new Set())
 
     setColumnWidths((previous) => {
       let changed = false
