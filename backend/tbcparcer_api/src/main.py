@@ -1,10 +1,8 @@
 import os
 import sys
-from datetime import datetime
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, request, send_from_directory
 from flask_cors import CORS
-from sqlalchemy import text
 from werkzeug.exceptions import HTTPException
 
 # DON'T CHANGE THIS !!!
@@ -21,7 +19,9 @@ from src.routes.ai_parsing import ai_parsing_bp
 from src.routes.export import export_bp
 from src.routes.trash import trash_bp
 from src.routes.dictionary import dictionary_bp
+from src.routes.health import health_bp
 from src.services.operator_dictionary import get_operator_dictionary
+from src.utils.http import api_error, ensure_request_id
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
 app.config['SECRET_KEY'] = 'tbcparcer_secret_key_2025'
@@ -29,6 +29,7 @@ app.config['SECRET_KEY'] = 'tbcparcer_secret_key_2025'
 # Настройка CORS для взаимодействия с frontend
 CORS(app, origins="*")
 
+app.register_blueprint(health_bp)
 app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(transaction_bp, url_prefix='/api')
 app.register_blueprint(operator_bp, url_prefix='/api')
@@ -43,22 +44,31 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
 
+def _get_request_path() -> str:
+    try:
+        return request.path
+    except RuntimeError:
+        return ''
+
+
+def _is_api_request(path: str) -> bool:
+    return path.startswith('/api')
+
+
 @app.errorhandler(HTTPException)
 def handle_http_exception(error: HTTPException):
     """Возвращать JSON-ошибки для API-запросов."""
-    try:
-        path = request.path
-    except RuntimeError:
-        path = ''
 
-    if path.startswith('/api'):
-        response = {
-            'error': error.name,
-            'message': error.description,
-            'status_code': error.code,
-            'path': path,
-        }
-        return jsonify(response), error.code
+    path = _get_request_path()
+    if _is_api_request(path):
+        request_id = ensure_request_id(request.headers.get('X-Request-ID'))
+        return api_error(
+            error.code,
+            error.name,
+            error.description,
+            path=path,
+            request_id=request_id,
+        )
 
     return error
 
@@ -66,52 +76,22 @@ def handle_http_exception(error: HTTPException):
 @app.errorhandler(Exception)
 def handle_unexpected_exception(error: Exception):
     """Логировать и оборачивать необработанные исключения для API."""
-    try:
-        path = request.path
-    except RuntimeError:
-        path = ''
 
+    path = _get_request_path()
     app.logger.exception('Unhandled exception on %s', path or 'unknown path')
 
-    if path.startswith('/api'):
-        response = {
-            'error': 'Internal Server Error',
-            'message': str(error),
-            'status_code': 500,
-            'path': path,
-        }
-        return jsonify(response), 500
+    if _is_api_request(path):
+        request_id = ensure_request_id(request.headers.get('X-Request-ID'))
+        return api_error(
+            500,
+            'Internal Server Error',
+            'Произошла непредвиденная ошибка',
+            path=path,
+            request_id=request_id,
+            details={'exception': str(error)},
+        )
 
     return app.handle_exception(error)
-
-
-@app.route('/health', methods=['GET'])
-def healthcheck():
-    """Простое состояние сервиса и зависимостей."""
-    db_status = 'ok'
-    db_details = None
-
-    try:
-        db.session.execute(text('SELECT 1'))
-    except Exception as exc:  # pragma: no cover - диагностика окружения
-        db_status = 'error'
-        db_details = str(exc)
-
-    openai_configured = bool(os.getenv('OPENAI_API_KEY'))
-    status_code = 200 if db_status == 'ok' else 503
-
-    payload = {
-        'status': 'ok' if status_code == 200 else 'degraded',
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
-        'database': {
-            'status': db_status,
-            'details': db_details,
-        },
-        'openai': 'configured' if openai_configured else 'disabled',
-        'version': os.getenv('APP_VERSION', 'unknown'),
-    }
-
-    return jsonify(payload), status_code
 
 # Создание таблиц и загрузка операторов
 with app.app_context():
