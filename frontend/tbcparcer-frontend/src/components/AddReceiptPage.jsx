@@ -3,7 +3,9 @@ import { ArrowLeft, Save, X } from 'lucide-react'
 import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js'
 import {
   manualTransactionFieldGroups,
-  createEmptyManualTransaction
+  createEmptyManualTransaction,
+  validateManualTransaction,
+  validateManualTransactionField
 } from '@/lib/manualTransactionSchema.js'
 
 const buildOperatorOption = (operator) => ({
@@ -13,68 +15,6 @@ const buildOperatorOption = (operator) => ({
     : operator.name,
   raw: operator
 })
-
-const getFieldError = (field, rawValue) => {
-  const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue
-  const { validation = {}, required, label } = field
-
-  if (required && (value === '' || value === null || value === undefined)) {
-    return `Поле «${label}» обязательно для заполнения`
-  }
-
-  if (value === '' || value === null || value === undefined) {
-    return undefined
-  }
-
-  switch (validation.type) {
-    case 'datetime': {
-      const dateValue = new Date(value)
-      if (Number.isNaN(dateValue.valueOf())) {
-        return 'Укажите корректную дату и время'
-      }
-      return undefined
-    }
-    case 'enum': {
-      if (validation.values && !validation.values.includes(value)) {
-        return 'Выберите значение из списка'
-      }
-      return undefined
-    }
-    case 'number': {
-      const numericValue = Number(value)
-      if (Number.isNaN(numericValue)) {
-        return 'Введите число'
-      }
-      if (validation.min !== undefined && numericValue < validation.min) {
-        return validation.message || `Значение должно быть не меньше ${validation.min}`
-      }
-      if (validation.max !== undefined && numericValue > validation.max) {
-        return validation.message || `Значение должно быть не больше ${validation.max}`
-      }
-      return undefined
-    }
-    case 'pattern': {
-      if (validation.pattern && !validation.pattern.test(value)) {
-        if (validation.allowEmpty && value === '') {
-          return undefined
-        }
-        return validation.message || 'Неверный формат значения'
-      }
-      return undefined
-    }
-    case 'string': {
-      if (validation.minLength && value.length < validation.minLength) {
-        return validation.message || `Минимальная длина — ${validation.minLength} символа`
-      }
-      if (validation.maxLength && value.length > validation.maxLength) {
-        return validation.message || `Максимальная длина — ${validation.maxLength} символов`
-      }
-      return undefined
-    }
-    default:
-      return undefined
-  }
-}
 
 const buildPayload = (formValues) => {
   const payload = {
@@ -159,24 +99,8 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
 
     setErrors(prevErrors => ({
       ...prevErrors,
-      [field.name]: undefined
+      [field.name]: validateManualTransactionField(field, value)
     }))
-  }
-
-  const validateForm = () => {
-    const validationErrors = {}
-
-    manualTransactionFieldGroups.forEach(group => {
-      group.fields.forEach(field => {
-        const fieldValue = formValues[field.name]
-        const fieldError = getFieldError(field, fieldValue)
-        if (fieldError) {
-          validationErrors[field.name] = fieldError
-        }
-      })
-    })
-
-    return validationErrors
   }
 
   const handleSubmit = async (event) => {
@@ -184,7 +108,7 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
     setErrorMessage('')
     setSuccessMessage('')
 
-    const validationErrors = validateForm()
+    const validationErrors = validateManualTransaction(formValues)
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
       return

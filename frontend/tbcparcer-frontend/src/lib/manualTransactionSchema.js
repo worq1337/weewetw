@@ -178,3 +178,92 @@ export const createEmptyManualTransaction = () => {
   return initialState
 }
 
+const isEmptyValue = (value) => {
+  if (value === null || value === undefined) {
+    return true
+  }
+
+  if (typeof value === 'string') {
+    return value.trim() === ''
+  }
+
+  return false
+}
+
+const manualTransactionFields = manualTransactionFieldGroups.flatMap(group => group.fields)
+
+export const validateManualTransactionField = (field, rawValue) => {
+  const value = typeof rawValue === 'string' ? rawValue.trim() : rawValue
+  const { validation = {}, required, label } = field
+
+  if (required && isEmptyValue(value)) {
+    return `Поле «${label}» обязательно для заполнения`
+  }
+
+  if (isEmptyValue(value)) {
+    return undefined
+  }
+
+  switch (validation.type) {
+    case 'datetime': {
+      const dateValue = new Date(value)
+      if (Number.isNaN(dateValue.valueOf())) {
+        return 'Укажите корректную дату и время'
+      }
+      return undefined
+    }
+    case 'enum': {
+      if (validation.values && !validation.values.includes(value)) {
+        return 'Выберите значение из списка'
+      }
+      return undefined
+    }
+    case 'number': {
+      const numericValue = Number(value)
+      if (Number.isNaN(numericValue)) {
+        return 'Введите число'
+      }
+      if (validation.min !== undefined && numericValue < validation.min) {
+        return validation.message || `Значение должно быть не меньше ${validation.min}`
+      }
+      if (validation.max !== undefined && numericValue > validation.max) {
+        return validation.message || `Значение должно быть не больше ${validation.max}`
+      }
+      return undefined
+    }
+    case 'pattern': {
+      if (validation.pattern && !validation.pattern.test(value)) {
+        if (validation.allowEmpty && value === '') {
+          return undefined
+        }
+        return validation.message || 'Неверный формат значения'
+      }
+      return undefined
+    }
+    case 'string': {
+      if (validation.minLength && value.length < validation.minLength) {
+        return validation.message || `Минимальная длина — ${validation.minLength} символа`
+      }
+      if (validation.maxLength && value.length > validation.maxLength) {
+        return validation.message || `Максимальная длина — ${validation.maxLength} символов`
+      }
+      return undefined
+    }
+    default:
+      return undefined
+  }
+}
+
+export const validateManualTransaction = (formValues) => {
+  const errors = {}
+
+  manualTransactionFields.forEach(field => {
+    const error = validateManualTransactionField(field, formValues[field.name])
+    if (error) {
+      errors[field.name] = error
+    }
+  })
+
+  return errors
+}
+
