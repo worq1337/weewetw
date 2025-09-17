@@ -178,19 +178,19 @@ const formatCellValue = (transaction, column) => {
   }
 
   if (column === 'data_source') {
-    return transaction.data_source || 'Telegram Bot'
+    return transaction.data_source || ''
   }
 
   if (column === 'category') {
-    return transaction.category || 'Общие'
+    return transaction.category || ''
   }
 
   if (column === 'operator_seller') {
-    return transaction.operator_seller || 'Неизвестно'
+    return transaction.operator_seller || ''
   }
 
   if (column === 'application') {
-    return transaction.application || 'Неизвестно'
+    return transaction.application || ''
   }
 
   if (column === 'actions') {

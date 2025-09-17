@@ -15,7 +15,7 @@ const transformTransaction = (transaction) => {
     return null
   }
 
-  let normalizedDateTime = transaction.date_time || null
+  let normalizedDateTime = null
 
   if (transaction.date_time) {
     const parsedDate = new Date(transaction.date_time)
@@ -25,26 +25,45 @@ const transformTransaction = (transaction) => {
     }
   }
 
-  const fallbackDate = normalizedDateTime || new Date().toISOString()
-  const operationType = (transaction.operation_type || 'payment').toLowerCase()
+  const operationType = typeof transaction.operation_type === 'string'
+    ? transaction.operation_type.toLowerCase()
+    : null
+
+  const amountValue = transaction.amount
+  let normalizedAmount = null
+  if (amountValue !== null && amountValue !== undefined) {
+    const parsedAmount = Number(amountValue)
+    normalizedAmount = Number.isNaN(parsedAmount) ? null : parsedAmount
+  }
+
+  const balanceValue = transaction.balance
+  let normalizedBalance = null
+  if (balanceValue !== null && balanceValue !== undefined) {
+    const parsedBalance = Number(balanceValue)
+    normalizedBalance = Number.isNaN(parsedBalance) ? null : parsedBalance
+  }
+
+  const receiptCandidate = transaction.raw_text
+    ? transaction.raw_text.split(/\r?\n/)[0].split(':')[0].trim()
+    : ''
 
   return {
     id: transaction.id,
-    receipt_number: transaction.raw_text?.split(':')[0]?.trim() || `CHK${transaction.id}`,
-    date_time: fallbackDate,
-    day_name: fallbackDate,
-    date: fallbackDate,
-    time: fallbackDate,
-    operator_seller: transaction.operator_name || 'Неизвестно',
-    application: transaction.operator_description || transaction.description || 'Неизвестно',
-    amount: Number(transaction.amount ?? 0),
-    balance: Number(transaction.balance ?? 0),
+    receipt_number: receiptCandidate,
+    date_time: normalizedDateTime,
+    day_name: normalizedDateTime,
+    date: normalizedDateTime,
+    time: normalizedDateTime,
+    operator_seller: transaction.operator_name || '',
+    application: transaction.operator_description || transaction.description || '',
+    amount: normalizedAmount,
+    balance: normalizedBalance,
     card_number: transaction.card_number || '',
     p2p: operationType === 'p2p',
-    transaction_type: operationType || 'payment',
-    currency: transaction.currency || 'UZS',
-    data_source: transaction.data_source || 'Telegram Bot',
-    category: transaction.category || 'Общие',
+    transaction_type: operationType,
+    currency: transaction.currency || '',
+    data_source: transaction.data_source || '',
+    category: transaction.category || '',
     raw_text: transaction.raw_text || ''
   }
 }

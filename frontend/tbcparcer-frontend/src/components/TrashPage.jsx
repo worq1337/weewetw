@@ -189,10 +189,10 @@ const TrashPage = ({ onBack }) => {
                       {formatAmount(transaction.amount, transaction.currency)}
                     </td>
                     <td className="p-3 text-sm">
-                      {transaction.operator_name || 'Неизвестно'}
+                      {transaction.operator_name || ''}
                     </td>
                     <td className="p-3 text-sm text-muted-foreground">
-                      {transaction.description || 'Нет описания'}
+                      {transaction.description || ''}
                     </td>
                     <td className="p-3">
                       <div className="flex items-center justify-center space-x-2">
