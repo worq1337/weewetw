@@ -7,9 +7,9 @@
             "category": "bank",
             "country": "UZ",
             "tags": [
+                "mobile",
                 "nbu",
-                "p2p",
-                "mobile"
+                "p2p"
             ],
             "applications": [
                 "Milliy"
@@ -20,8 +20,8 @@
             "category": "telecom",
             "country": "UZ",
             "tags": [
-                "uztelecom",
                 "mobile",
+                "uztelecom",
                 "wallet"
             ],
             "applications": [
@@ -34,8 +34,8 @@
             "country": "UZ",
             "tags": [
                 "telecom",
-                "wallet",
-                "upay"
+                "upay",
+                "wallet"
             ],
             "applications": [
                 "Humans"
@@ -46,8 +46,8 @@
             "category": "payment_service",
             "country": "UZ",
             "tags": [
-                "p2p",
-                "nbu"
+                "nbu",
+                "p2p"
             ],
             "applications": [
                 "Tenge24"
@@ -58,8 +58,8 @@
             "category": "payment_service",
             "country": "UZ",
             "tags": [
-                "treasury",
-                "p2p"
+                "p2p",
+                "treasury"
             ],
             "applications": [
                 "Xazna"
@@ -131,8 +131,8 @@
             "category": "payment_service",
             "country": "UZ",
             "tags": [
-                "uzcard",
-                "plus"
+                "plus",
+                "uzcard"
             ],
             "applications": [
                 "Joyda"
@@ -167,8 +167,8 @@
             "category": "fintech",
             "country": "UZ",
             "tags": [
-                "smartbank",
-                "p2p"
+                "p2p",
+                "smartbank"
             ],
             "applications": [
                 "SmartBank"
@@ -179,8 +179,8 @@
             "category": "fintech",
             "country": "UZ",
             "tags": [
-                "beepul",
-                "aggregator"
+                "aggregator",
+                "beepul"
             ],
             "applications": [
                 "Beepul"
@@ -191,8 +191,8 @@
             "category": "payment_service",
             "country": "UZ",
             "tags": [
-                "payway",
-                "aggregator"
+                "aggregator",
+                "payway"
             ],
             "applications": [
                 "PayWay"
@@ -215,9 +215,9 @@
             "category": "bank",
             "country": "UZ",
             "tags": [
-                "uzum",
+                "crossborder",
                 "p2p",
-                "crossborder"
+                "uzum"
             ],
             "applications": [
                 "UzumBank"
@@ -228,8 +228,8 @@
             "category": "bank",
             "country": "UZ",
             "tags": [
-                "sqb",
-                "p2p"
+                "p2p",
+                "sqb"
             ],
             "applications": [
                 "SQB Mobile"
@@ -240,11 +240,71 @@
             "category": "payment_service",
             "country": "UZ",
             "tags": [
-                "chakanapay",
-                "aggregator"
+                "aggregator",
+                "chakanapay"
             ],
             "applications": [
                 "ChakanaPay"
+            ]
+        },
+        "Click": {
+            "display_name": "Click",
+            "category": "payment_service",
+            "country": "UZ",
+            "tags": [
+                "click",
+                "wallet"
+            ],
+            "applications": [
+                "Click"
+            ]
+        },
+        "Oson": {
+            "display_name": "Oson",
+            "category": "payment_service",
+            "country": "UZ",
+            "tags": [
+                "oson",
+                "wallet"
+            ],
+            "applications": [
+                "Oson"
+            ]
+        },
+        "Apelsin": {
+            "display_name": "Apelsin",
+            "category": "payment_service",
+            "country": "UZ",
+            "tags": [
+                "apelsin",
+                "wallet"
+            ],
+            "applications": [
+                "Apelsin"
+            ]
+        },
+        "Anorbank": {
+            "display_name": "Anorbank",
+            "category": "bank",
+            "country": "UZ",
+            "tags": [
+                "anorbank",
+                "p2p"
+            ],
+            "applications": [
+                "Anorbank"
+            ]
+        },
+        "Kapitalbank": {
+            "display_name": "Kapitalbank",
+            "category": "bank",
+            "country": "UZ",
+            "tags": [
+                "kapitalbank",
+                "p2p"
+            ],
+            "applications": [
+                "Kapitalbank"
             ]
         }
     },
@@ -253,20 +313,20 @@
             "display_name": "Milliy",
             "operator": "Milliy 2.0",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
-                "nbu",
-                "banking"
+                "banking",
+                "nbu"
             ]
         },
         "MyUztelecom": {
             "display_name": "MyUztelecom",
             "operator": "MyUztelecom",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "telecom",
@@ -277,8 +337,8 @@
             "display_name": "Humans",
             "operator": "Humans",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "payments",
@@ -292,8 +352,8 @@
                 "web"
             ],
             "tags": [
-                "p2p",
-                "interbank"
+                "interbank",
+                "p2p"
             ]
         },
         "Xazna": {
@@ -310,8 +370,8 @@
             "display_name": "Davr Mobile",
             "operator": "Davr Mobile",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "banking",
@@ -322,8 +382,8 @@
             "display_name": "Hamkor Mobile",
             "operator": "Hamkor",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "banking"
@@ -333,8 +393,8 @@
             "display_name": "OQ",
             "operator": "OQ",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "banking"
@@ -374,8 +434,8 @@
             "display_name": "Agrobank Mobile",
             "operator": "Agrobank",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "banking"
@@ -385,8 +445,8 @@
             "display_name": "Asakabank Mobile",
             "operator": "Asakabank",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "banking"
@@ -396,8 +456,8 @@
             "display_name": "SmartBank",
             "operator": "SmartBank",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "banking",
@@ -408,8 +468,8 @@
             "display_name": "Beepul",
             "operator": "Beepul",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "payments"
@@ -419,8 +479,8 @@
             "display_name": "PayWay",
             "operator": "PayWay",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "payments"
@@ -430,8 +490,8 @@
             "display_name": "Payme",
             "operator": "Payme",
             "platforms": [
-                "ios",
                 "android",
+                "ios",
                 "web"
             ],
             "tags": [
@@ -442,8 +502,8 @@
             "display_name": "Uzum Bank",
             "operator": "UzumBank",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "banking"
@@ -453,8 +513,8 @@
             "display_name": "SQB Mobile",
             "operator": "SQB",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "banking"
@@ -464,11 +524,62 @@
             "display_name": "ChakanaPay",
             "operator": "Chakanapay",
             "platforms": [
-                "ios",
-                "android"
+                "android",
+                "ios"
             ],
             "tags": [
                 "payments"
+            ]
+        },
+        "Click": {
+            "operator": "Click",
+            "platforms": [
+                "android",
+                "ios",
+                "web"
+            ],
+            "tags": [
+                "wallet"
+            ]
+        },
+        "Oson": {
+            "operator": "Oson",
+            "platforms": [
+                "android",
+                "ios"
+            ],
+            "tags": [
+                "wallet"
+            ]
+        },
+        "Apelsin": {
+            "operator": "Apelsin",
+            "platforms": [
+                "android",
+                "ios"
+            ],
+            "tags": [
+                "wallet"
+            ]
+        },
+        "Anorbank": {
+            "operator": "Anorbank",
+            "platforms": [
+                "android",
+                "ios"
+            ],
+            "tags": [
+                "banking"
+            ]
+        },
+        "Kapitalbank": {
+            "operator": "Kapitalbank",
+            "platforms": [
+                "android",
+                "ios"
+            ],
+            "tags": [
+                "banking"
             ]
         }
     },
@@ -817,6 +928,75 @@
             "alias": "ChakanaPay Humo Uzcard",
             "operator": "Chakanapay",
             "application": "ChakanaPay"
+        },
+        {
+            "alias": "CLICK P2P, UZ",
+            "operator": "Click",
+            "application": "Click"
+        },
+        {
+            "alias": "CLICK UZCARD TO HUMO",
+            "operator": "Click",
+            "application": "Click"
+        },
+        {
+            "alias": "CLICK HUMO TO UZCARD",
+            "operator": "Click",
+            "application": "Click"
+        },
+        {
+            "alias": "OSON P2P, UZ",
+            "operator": "Oson",
+            "application": "Oson"
+        },
+        {
+            "alias": "OSON TRANSFER HUMO2UZCARD",
+            "operator": "Oson",
+            "application": "Oson"
+        },
+        {
+            "alias": "APELSIN P2P, UZ",
+            "operator": "Apelsin",
+            "application": "Apelsin"
+        },
+        {
+            "alias": "APELSIN UZCARD2HUMO",
+            "operator": "Apelsin",
+            "application": "Apelsin"
+        },
+        {
+            "alias": "ANORBANK P2P UZCARD, UZ",
+            "operator": "Anorbank",
+            "application": "Anorbank"
+        },
+        {
+            "alias": "ANORBANK P2P HUMO, UZ",
+            "operator": "Anorbank",
+            "application": "Anorbank"
+        },
+        {
+            "alias": "KAPITALBANK P2P, UZ",
+            "operator": "Kapitalbank",
+            "application": "Kapitalbank"
+        },
+        {
+            "alias": "KAPITALBANK HUMO TO UZCARD",
+            "operator": "Kapitalbank",
+            "application": "Kapitalbank"
+        }
+    ],
+    "sources": [
+        {
+            "url": "https://nbu.uz",
+            "label": "National Bank of Uzbekistan directory"
+        },
+        {
+            "url": "https://play.google.com",
+            "label": "Google Play listings"
+        },
+        {
+            "url": "https://appstore.apple.com",
+            "label": "App Store listings"
         }
     ]
 }
