@@ -76,6 +76,10 @@ def _register_blueprints(app: Flask) -> None:
 def _register_error_handlers(app: Flask) -> None:
     """Configure centralised error handling for the API."""
 
+    from src.services.manual_transaction import ManualTransactionError
+    from src.services.receipt_pipeline import ReceiptProcessingError
+    from src.utils.errors import APIError
+
     def _get_request_path() -> str:
         try:
             return request.path
@@ -85,17 +89,58 @@ def _register_error_handlers(app: Flask) -> None:
     def _is_api_request(path: str) -> bool:
         return path.startswith('/api')
 
+    def _build_error_response(
+        status_code: int,
+        error: str,
+        message: str,
+        *,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        path = _get_request_path()
+        request_id = ensure_request_id(request.headers.get('X-Request-ID'))
+        return api_error(
+            status_code,
+            error,
+            message,
+            path=path,
+            request_id=request_id,
+            details=details,
+        )
+
+    @app.errorhandler(APIError)
+    def handle_api_error(error: APIError):
+        return _build_error_response(
+            error.status_code,
+            error.error,
+            str(error),
+            details=error.details,
+        )
+
+    @app.errorhandler(ManualTransactionError)
+    def handle_manual_transaction_error(error: ManualTransactionError):
+        return _build_error_response(
+            error.status_code,
+            'Manual transaction error',
+            str(error),
+            details=getattr(error, 'extra', None),
+        )
+
+    @app.errorhandler(ReceiptProcessingError)
+    def handle_receipt_processing_error(error: ReceiptProcessingError):
+        return _build_error_response(
+            error.status_code,
+            'Receipt processing error',
+            str(error),
+        )
+
     @app.errorhandler(HTTPException)
     def handle_http_exception(error: HTTPException):  # pragma: no cover - thin wrapper
         path = _get_request_path()
         if _is_api_request(path):
-            request_id = ensure_request_id(request.headers.get('X-Request-ID'))
-            return api_error(
+            return _build_error_response(
                 error.code,
                 error.name,
                 error.description,
-                path=path,
-                request_id=request_id,
             )
         return error
 
@@ -105,13 +150,10 @@ def _register_error_handlers(app: Flask) -> None:
         app.logger.exception('Unhandled exception on %s', path or 'unknown path')
 
         if _is_api_request(path):
-            request_id = ensure_request_id(request.headers.get('X-Request-ID'))
-            return api_error(
+            return _build_error_response(
                 500,
                 'Internal Server Error',
                 'Произошла непредвиденная ошибка',
-                path=path,
-                request_id=request_id,
                 details={'exception': str(error)},
             )
 

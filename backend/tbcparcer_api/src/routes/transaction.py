@@ -1,44 +1,51 @@
-from flask import Blueprint, request, jsonify
-from src.models.user import db, User
-from src.models.transaction import Transaction
-from src.models.operator import Operator
 from datetime import datetime
+
+from flask import Blueprint, jsonify, request
+
+from src.models.operator import Operator
+from src.models.transaction import Transaction
+from src.models.user import User, db
 from src.services.manual_transaction import (
     ManualTransactionError,
     create_manual_transaction,
 )
+from src.utils.errors import APIError
 
 transaction_bp = Blueprint('transaction', __name__)
 
 @transaction_bp.route('/transactions', methods=['GET'])
 def get_transactions():
     """Получить все транзакции пользователя"""
+    telegram_id_raw = request.args.get('telegram_id')
+    if not telegram_id_raw:
+        raise APIError(400, 'telegram_id is required', error='Bad Request')
+
     try:
-        telegram_id = request.args.get('telegram_id')
-        if not telegram_id:
-            return jsonify({'error': 'telegram_id is required'}), 400
-        
-        user = User.query.filter_by(telegram_id=int(telegram_id)).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        # Получаем транзакции с пагинацией
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 50, type=int)
-        
-        transactions = Transaction.query.filter_by(user_id=user.id, is_deleted=False)\
-            .order_by(Transaction.date_time.desc())\
-            .paginate(page=page, per_page=per_page, error_out=False)
-        
-        return jsonify({
+        telegram_id = int(telegram_id_raw)
+    except (TypeError, ValueError):
+        raise APIError(400, 'telegram_id must be an integer', error='Bad Request')
+
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if not user:
+        raise APIError(404, 'User not found', error='Not Found')
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+
+    transactions = (
+        Transaction.query.filter_by(user_id=user.id, is_deleted=False)
+        .order_by(Transaction.date_time.desc())
+        .paginate(page=page, per_page=per_page, error_out=False)
+    )
+
+    return jsonify(
+        {
             'transactions': [t.to_dict() for t in transactions.items],
             'total': transactions.total,
             'pages': transactions.pages,
-            'current_page': page
-        })
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+            'current_page': page,
+        }
+    )
 
 @transaction_bp.route('/transactions', methods=['POST'])
 def create_transaction():
@@ -47,42 +54,43 @@ def create_transaction():
 
     try:
         transaction, context = create_manual_transaction(data)
-        transaction_dict = transaction.to_dict()
-
-        if context.generated_raw_text:
-            transaction_dict['data_source'] = 'Manual form'
-
-        return jsonify({'transaction': transaction_dict}), 201
-
-    except ManualTransactionError as validation_error:
+    except ManualTransactionError:
         db.session.rollback()
-        response_body = {'error': str(validation_error)}
-        if validation_error.extra:
-            response_body.update(validation_error.extra)
-        return jsonify(response_body), validation_error.status_code
-    except Exception as exc:
+        raise
+    except Exception as exc:  # pragma: no cover - unexpected failure
         db.session.rollback()
-        return jsonify({'error': str(exc)}), 500
+        raise APIError(500, 'Failed to create transaction', details={'reason': str(exc)})
+
+    transaction_dict = transaction.to_dict()
+
+    if context.generated_raw_text:
+        transaction_dict['data_source'] = 'Manual form'
+
+    return jsonify({'transaction': transaction_dict}), 201
 
 @transaction_bp.route('/transactions/<int:transaction_id>', methods=['PUT'])
 def update_transaction(transaction_id):
     """Обновить транзакцию"""
+    data = request.get_json() or {}
+    telegram_id_raw = data.get('telegram_id')
+
+    if not telegram_id_raw:
+        raise APIError(400, 'telegram_id is required', error='Bad Request')
+
     try:
-        data = request.get_json()
-        telegram_id = data.get('telegram_id')
-        
-        if not telegram_id:
-            return jsonify({'error': 'telegram_id is required'}), 400
-        
-        user = User.query.filter_by(telegram_id=int(telegram_id)).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        transaction = Transaction.query.filter_by(id=transaction_id, user_id=user.id).first()
-        if not transaction:
-            return jsonify({'error': 'Transaction not found'}), 404
-        
-        # Обновляем поля
+        telegram_id = int(telegram_id_raw)
+    except (TypeError, ValueError):
+        raise APIError(400, 'telegram_id must be an integer', error='Bad Request')
+
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if not user:
+        raise APIError(404, 'User not found', error='Not Found')
+
+    transaction = Transaction.query.filter_by(id=transaction_id, user_id=user.id).first()
+    if not transaction:
+        raise APIError(404, 'Transaction not found', error='Not Found')
+
+    try:
         if 'date_time' in data:
             parsed_datetime = datetime.fromisoformat(data['date_time'].replace('Z', '+00:00'))
             transaction.date_time = parsed_datetime.replace(second=0, microsecond=0)
@@ -96,77 +104,79 @@ def update_transaction(transaction_id):
             transaction.card_number = data['card_number']
         if 'description' in data:
             transaction.description = data['description']
-            # Обновляем оператора
             operator = Operator.find_operator_by_description(data['description'], user.id)
             transaction.operator_id = operator.id if operator else None
         if 'balance' in data:
             transaction.balance = float(data['balance']) if data['balance'] else None
-        
+
         db.session.commit()
-        
-        return jsonify({'transaction': transaction.to_dict()})
-    
-    except Exception as e:
+    except Exception as exc:  # pragma: no cover - conversion guards
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        raise APIError(400, 'Invalid transaction payload', details={'reason': str(exc)})
+
+    return jsonify({'transaction': transaction.to_dict()})
 
 @transaction_bp.route('/transactions/<int:transaction_id>', methods=['DELETE'])
 def delete_transaction(transaction_id):
     """Удалить транзакцию"""
+    telegram_id_raw = request.args.get('telegram_id')
+    if not telegram_id_raw:
+        raise APIError(400, 'telegram_id is required', error='Bad Request')
+
     try:
-        telegram_id = request.args.get('telegram_id')
-        if not telegram_id:
-            return jsonify({'error': 'telegram_id is required'}), 400
-        
-        user = User.query.filter_by(telegram_id=int(telegram_id)).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        transaction = Transaction.query.filter_by(id=transaction_id, user_id=user.id).first()
-        if not transaction:
-            return jsonify({'error': 'Transaction not found'}), 404
-        
-        db.session.delete(transaction)
-        db.session.commit()
-        
-        return jsonify({'message': 'Transaction deleted successfully'})
-    
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        telegram_id = int(telegram_id_raw)
+    except (TypeError, ValueError):
+        raise APIError(400, 'telegram_id must be an integer', error='Bad Request')
+
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if not user:
+        raise APIError(404, 'User not found', error='Not Found')
+
+    transaction = Transaction.query.filter_by(id=transaction_id, user_id=user.id).first()
+    if not transaction:
+        raise APIError(404, 'Transaction not found', error='Not Found')
+
+    db.session.delete(transaction)
+    db.session.commit()
+
+    return jsonify({'message': 'Transaction deleted successfully'})
 
 @transaction_bp.route('/transactions/export', methods=['GET'])
 def export_transactions():
     """Экспорт транзакций в Excel"""
+    telegram_id_raw = request.args.get('telegram_id')
+    if not telegram_id_raw:
+        raise APIError(400, 'telegram_id is required', error='Bad Request')
+
     try:
-        telegram_id = request.args.get('telegram_id')
-        if not telegram_id:
-            return jsonify({'error': 'telegram_id is required'}), 400
-        
-        user = User.query.filter_by(telegram_id=int(telegram_id)).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        transactions = Transaction.query.filter_by(user_id=user.id, is_deleted=False)\
-            .order_by(Transaction.date_time.desc()).all()
-        
-        # Возвращаем данные для экспорта
-        export_data = []
-        for t in transactions:
-            export_data.append({
-                'Дата': t.date_time.strftime('%d.%m.%Y %H:%M') if t.date_time else '',
-                'Тип операции': t.operation_type,
-                'Сумма': float(t.amount) if t.amount else 0,
-                'Валюта': t.currency,
-                'Номер карты': t.card_number or '',
-                'Описание': t.description or '',
-                'Баланс': float(t.balance) if t.balance else 0,
-                'Оператор': t.operator.name if t.operator else '',
-                'Приложение': t.operator.description if t.operator else ''
-            })
-        
-        return jsonify({'data': export_data})
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        telegram_id = int(telegram_id_raw)
+    except (TypeError, ValueError):
+        raise APIError(400, 'telegram_id must be an integer', error='Bad Request')
+
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if not user:
+        raise APIError(404, 'User not found', error='Not Found')
+
+    transactions = (
+        Transaction.query.filter_by(user_id=user.id, is_deleted=False)
+        .order_by(Transaction.date_time.desc())
+        .all()
+    )
+
+    export_data = [
+        {
+            'Дата': t.date_time.strftime('%d.%m.%Y %H:%M') if t.date_time else '',
+            'Тип операции': t.operation_type,
+            'Сумма': float(t.amount) if t.amount else 0,
+            'Валюта': t.currency,
+            'Номер карты': t.card_number or '',
+            'Описание': t.description or '',
+            'Баланс': float(t.balance) if t.balance else 0,
+            'Оператор': t.operator.name if t.operator else '',
+            'Приложение': t.operator.description if t.operator else '',
+        }
+        for t in transactions
+    ]
+
+    return jsonify({'data': export_data})
 
