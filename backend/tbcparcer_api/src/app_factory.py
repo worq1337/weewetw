@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, g
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 
@@ -41,12 +41,28 @@ def create_app(config: Optional[Dict[str, Any]] = None) -> Flask:
 
     db.init_app(app)
 
+    _register_request_hooks(app)
     _register_blueprints(app)
     _register_error_handlers(app)
     _initialise_database(app)
     _register_static_routes(app)
 
     return app
+
+
+def _register_request_hooks(app: Flask) -> None:
+    """Configure standard request/response lifecycle helpers."""
+
+    @app.before_request
+    def _assign_request_id() -> None:  # pragma: no cover - simple wiring
+        g.request_id = ensure_request_id(request.headers.get('X-Request-ID'))
+
+    @app.after_request
+    def _inject_request_id(response):  # pragma: no cover - simple wiring
+        request_id = getattr(g, 'request_id', None)
+        if request_id and 'X-Request-ID' not in response.headers:
+            response.headers['X-Request-ID'] = request_id
+        return response
 
 
 def _register_blueprints(app: Flask) -> None:
