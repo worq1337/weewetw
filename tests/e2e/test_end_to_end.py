@@ -5,14 +5,7 @@ import pytest
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
-from src.services.ai_parser import AIParsingService
 from src.services.excel_export import ExcelExportService
-
-
-@pytest.fixture(scope='module')
-def parsing_service():
-    """Provide a single parsing service instance for the module."""
-    return AIParsingService()
 
 
 def _build_receipt(date_str: str, amount: str, balance: str, card: str, operator: str, description: str) -> str:
@@ -26,7 +19,7 @@ def _build_receipt(date_str: str, amount: str, balance: str, card: str, operator
     )
 
 
-def test_parser_to_export_flow(client, parsing_service):
+def test_parser_to_export_flow(client):
     telegram_id = 777000
     username = 'e2e-tester'
 
@@ -67,9 +60,15 @@ def test_parser_to_export_flow(client, parsing_service):
 
     # Парсим и сохраняем транзакции через API (parser -> API/DB)
     for receipt in receipts:
-        preview = parsing_service.parse_receipt(receipt['text'])
-        assert preview.get('operation_type') == receipt['expected_operation']
-        assert pytest.approx(float(preview.get('amount', 0))) == receipt['expected_amount']
+        preview_response = client.post(
+            '/api/ai/parse',
+            json={'text': receipt['text'], 'telegram_id': telegram_id},
+        )
+        assert preview_response.status_code == 200
+        preview_payload = preview_response.get_json()
+        preview_data = preview_payload['parsed_data']
+        assert preview_data.get('operation_type') == receipt['expected_operation']
+        assert pytest.approx(float(preview_data.get('amount', 0))) == receipt['expected_amount']
 
         response = client.post('/api/ai/parse-and-save', json={'text': receipt['text'], 'telegram_id': telegram_id})
         assert response.status_code == 200

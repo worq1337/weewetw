@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from flask import jsonify
+from flask import jsonify, g
 
 
 def ensure_request_id(candidate: Optional[str] = None) -> str:
@@ -39,8 +39,15 @@ def api_error(
     if path:
         payload['path'] = path
 
-    if request_id:
-        payload['request_id'] = request_id
+    request_id_value = request_id
+    if not request_id_value:
+        try:
+            request_id_value = getattr(g, 'request_id', None)
+        except RuntimeError:  # pragma: no cover - outside request context
+            request_id_value = None
+
+    if request_id_value:
+        payload['request_id'] = request_id_value
 
     if details:
         payload['details'] = details
@@ -48,7 +55,7 @@ def api_error(
     response = jsonify(payload)
     response.status_code = status_code
 
-    if request_id:
-        response.headers['X-Request-ID'] = request_id
+    if request_id_value:
+        response.headers['X-Request-ID'] = request_id_value
 
     return response

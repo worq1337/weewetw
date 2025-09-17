@@ -10,7 +10,7 @@ const resolveDefaultTelegramId = () => {
     }
   }
 
-  return 123456789
+  return null
 }
 
 const trimTrailingSlash = (value) => {
@@ -46,3 +46,5 @@ export const apiFetch = (path, options) => {
 }
 
 export const DEFAULT_TELEGRAM_ID = resolveDefaultTelegramId()
+
+export const isDefaultTelegramConfigured = () => DEFAULT_TELEGRAM_ID !== null && DEFAULT_TELEGRAM_ID !== undefined

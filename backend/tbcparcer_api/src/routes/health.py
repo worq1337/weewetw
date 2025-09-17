@@ -7,10 +7,11 @@ import platform
 from datetime import datetime
 from typing import Dict
 
-from flask import Blueprint, current_app, jsonify
+from flask import Blueprint, current_app, jsonify, g
 from sqlalchemy import text
 
 from src.models.user import db
+from src.services.operator_dictionary import get_operator_dictionary
 
 
 health_bp = Blueprint('health', __name__)
@@ -35,9 +36,21 @@ def healthcheck():
     openai_configured = bool(os.getenv('OPENAI_API_KEY'))
 
     status_code = 200 if database_status.get('status') == 'ok' else 503
+    overall_status = 'ok' if status_code == 200 else 'degraded'
+
+    dictionary_status = {'status': 'ok'}
+    try:
+        dictionary = get_operator_dictionary()
+        dictionary_status['entries'] = dictionary.size()
+        dictionary_status['path'] = str(dictionary.path)
+    except Exception as exc:  # pragma: no cover - diagnostic guard
+        current_app.logger.warning('Healthcheck dictionary failure: %s', exc)
+        dictionary_status = {'status': 'error', 'details': str(exc)}
+        status_code = 503
+        overall_status = 'degraded'
 
     payload = {
-        'status': 'ok' if status_code == 200 else 'degraded',
+        'status': overall_status,
         'timestamp': datetime.utcnow().isoformat() + 'Z',
         'application': {
             'version': os.getenv('APP_VERSION', 'unknown'),
@@ -51,6 +64,11 @@ def healthcheck():
         'openai': {
             'status': 'configured' if openai_configured else 'disabled',
         },
+        'dictionary': dictionary_status,
     }
+
+    request_id = getattr(g, 'request_id', None)
+    if request_id:
+        payload['request_id'] = request_id
 
     return jsonify(payload), status_code

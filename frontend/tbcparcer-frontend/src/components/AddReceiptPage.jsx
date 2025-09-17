@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Save, Sparkles, Upload, X } from 'lucide-react'
-import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js'
+import { apiFetch, DEFAULT_TELEGRAM_ID, isDefaultTelegramConfigured } from '@/lib/api.js'
 import {
   manualTransactionFieldGroups,
   createEmptyManualTransaction,
@@ -64,9 +64,17 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
   const [parsePreview, setParsePreview] = useState(null)
   const [parseLoading, setParseLoading] = useState(false)
   const [parseError, setParseError] = useState('')
+  const telegramConfigured = isDefaultTelegramConfigured()
+  const configurationMessage = 'Укажите VITE_DEFAULT_TELEGRAM_ID в настройках фронтенда для работы с API.'
 
   useEffect(() => {
     const fetchOperators = async () => {
+      if (!telegramConfigured) {
+        setOperators([])
+        setErrorMessage(configurationMessage)
+        return
+      }
+
       try {
         const response = await apiFetch(`/api/operators?telegram_id=${DEFAULT_TELEGRAM_ID}`)
         if (!response.ok) {
@@ -82,7 +90,7 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
     }
 
     fetchOperators()
-  }, [])
+  }, [telegramConfigured])
 
   const operatorOptions = useMemo(() => {
     return operators.map(buildOperatorOption)
@@ -116,6 +124,11 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
     event.preventDefault()
     setErrorMessage('')
     setSuccessMessage('')
+
+    if (!telegramConfigured) {
+      setErrorMessage(configurationMessage)
+      return
+    }
 
     const validationErrors = validateManualTransaction(formValues)
     if (Object.keys(validationErrors).length > 0) {
@@ -172,6 +185,11 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
     event.preventDefault()
     setParseError('')
     setSuccessMessage('')
+
+    if (!telegramConfigured) {
+      setParseError(configurationMessage)
+      return
+    }
 
     if (!receiptText.trim()) {
       setParseError('Вставьте текст чека для распознавания')
@@ -376,11 +394,11 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
               <div className="flex gap-3">
                 <button
                   type="submit"
-                  disabled={parseLoading}
+                  disabled={parseLoading || !telegramConfigured}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                 >
                   <Upload size={18} />
-                  {parseLoading ? 'Распознаем…' : 'Распознать и сохранить'}
+                  {parseLoading ? 'Распознаем…' : telegramConfigured ? 'Распознать и сохранить' : 'Недоступно'}
                 </button>
                 <button
                   type="button"
@@ -443,11 +461,11 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
             <div className="flex gap-4 pt-2">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !telegramConfigured}
                 className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
                 <Save size={18} />
-                {loading ? 'Сохранение...' : 'Сохранить чек'}
+                {loading ? 'Сохранение...' : telegramConfigured ? 'Сохранить чек' : 'Недоступно'}
               </button>
 
               <button

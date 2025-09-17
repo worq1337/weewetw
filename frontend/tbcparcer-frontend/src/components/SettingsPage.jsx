@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Save, Trash2, Edit3, X } from 'lucide-react';
-import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js';
+import { apiFetch, DEFAULT_TELEGRAM_ID, isDefaultTelegramConfigured } from '@/lib/api.js';
 
 const SettingsPage = ({ onBack }) => {
   const [operators, setOperators] = useState([]);
@@ -13,13 +13,24 @@ const SettingsPage = ({ onBack }) => {
   const [newOperator, setNewOperator] = useState({ name: '', description: '' });
   const [newCategory, setNewCategory] = useState({ name: '', description: '' });
   const [editingOperator, setEditingOperator] = useState(null);
+  const telegramConfigured = isDefaultTelegramConfigured();
+  const configurationMessage = 'Укажите VITE_DEFAULT_TELEGRAM_ID в настройках фронтенда для работы с API.';
 
   useEffect(() => {
+    if (!telegramConfigured) {
+      setError(configurationMessage);
+      setOperators([]);
+      return;
+    }
+
     fetchOperators();
     fetchCategories();
-  }, []);
+  }, [telegramConfigured]);
 
   const fetchOperators = async () => {
+    if (!telegramConfigured) {
+      return;
+    }
     try {
       const response = await apiFetch(`/api/operators?telegram_id=${DEFAULT_TELEGRAM_ID}`);
       if (response.ok) {
@@ -55,6 +66,11 @@ const SettingsPage = ({ onBack }) => {
     e.preventDefault();
     if (!newOperator.name.trim()) return;
 
+    if (!telegramConfigured) {
+      setError(configurationMessage);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await apiFetch('/api/operators', {
@@ -88,6 +104,11 @@ const SettingsPage = ({ onBack }) => {
   const handleEditOperator = async (operator) => {
     if (!editingOperator) return;
 
+    if (!telegramConfigured) {
+      setError(configurationMessage);
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await apiFetch(`/api/operators/${operator.id}`, {
@@ -120,6 +141,11 @@ const SettingsPage = ({ onBack }) => {
 
   const handleDeleteOperator = async (operatorId) => {
     if (!confirm('Вы уверены, что хотите удалить этого оператора?')) return;
+
+    if (!telegramConfigured) {
+      setError(configurationMessage);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -196,11 +222,11 @@ const SettingsPage = ({ onBack }) => {
                 />
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !telegramConfigured}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
                   <Plus size={16} />
-                  Добавить
+                  {telegramConfigured ? 'Добавить' : 'Недоступно'}
                 </button>
               </div>
             </form>
@@ -229,7 +255,8 @@ const SettingsPage = ({ onBack }) => {
                         />
                         <button
                           onClick={() => handleEditOperator(operator)}
-                          className="px-2 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                          disabled={!telegramConfigured}
+                          className="px-2 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Save size={14} />
                         </button>
@@ -249,13 +276,15 @@ const SettingsPage = ({ onBack }) => {
                         <div className="flex gap-2">
                           <button
                             onClick={() => setEditingOperator({ ...operator })}
-                            className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                            disabled={!telegramConfigured}
+                            className="p-1 text-blue-600 hover:bg-blue-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Edit3 size={16} />
                           </button>
                           <button
                             onClick={() => handleDeleteOperator(operator.id)}
-                            className="p-1 text-red-600 hover:bg-red-100 rounded"
+                            disabled={!telegramConfigured}
+                            className="p-1 text-red-600 hover:bg-red-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Trash2 size={16} />
                           </button>
