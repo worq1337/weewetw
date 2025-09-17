@@ -1,73 +1,822 @@
 {
-  "aliases": {
-    "NBU 2P2 U PLAT UZCARD, 99": "Milliy 2.0",
-    "NBU P2P HUMO UZCARD>": "Milliy 2.0",
-    "NBU P2P HUMOHUMO>tas": "Milliy 2.0",
-    "NBU P2P UZCARD HUMO, 99": "Milliy 2.0",
-    "PSP P2P AKSIYA>TASHK": "MyUztelecom",
-    "PSP P2P AKSIYA, UZ": "MyUztelecom",
-    "PSP P2P HUMO2UZCARD>": "MyUztelecom",
-    "UPAY P2P": "Humans",
-    "UPAY P2P, UZ": "Humans",
-    "UPAY Humo2Uzcard>TOS": "Humans",
-    "UPAY UZCARD2HUMO, UZ": "Humans",
-    "UPAY HUMO2HUMO P2P>T": "Humans",
-    "DAVR UPAY HUMANS UZCARD2UZCARD, UZ": "Humans",
-    "DAVR UPAY HUMANS UZCARD2HU, UZ": "Humans",
-    "TENGE UNIVERSAL P2P, UZ": "Tenge24",
-    "T24 P2P Humo to Uzca": "Tenge24",
-    "NEW DBO UZKART-HUMO, UZ": "Tenge24",
-    "TENGE 24 P2P UZCARD UZCARD, UZ": "Tenge24",
-    "TENGE 24 P2P UZCARD HUMO, UZ": "Tenge24",
-    "Tenge24 P2P UZCARDHU": "Tenge24",
-    "TENGE-24 WS P2P INTERBANK, UZ": "Tenge24",
-    "TENGE-24 WS P2P INTERBANK SPISANIYE UZCA, UZ": "Tenge24",
-    "TENGE-24 WS P2P U2H-E, UZ": "Tenge24",
-    "TENGE24 WS P2P H2UEW": "Tenge24",
-    "XAZNA OTHERS 2 ANY, 99": "Xazna",
-    "XAZNA OTHERS TO HUMO, 99": "Xazna",
-    "XAZNA HUMO 2 UZCARD": "Xazna",
-    "XAZNA P2P>TOSHKENT": "Xazna",
-    "DAVR MOBILE UZCARD UZCARD, UZ": "Davr Mobile",
-    "DAVR MOBILE P2P H2U>": "Davr Mobile",
-    "DAVR MOBILE P2P H2H>": "Davr Mobile",
-    "DAVR MOBILE HUMO UZCARD, UZ": "Davr Mobile",
-    "DAVR MOBILE P2P KOMIS, UZ": "Davr Mobile",
-    "DAVR MOBILE UZCARD HUMO, UZ": "Davr Mobile",
-    "HAMKORBANK ATB, UZ": "Hamkor",
-    "HAMKOR P2P UZKARD>AN": "Hamkor",
-    "OQ P2P, UZ": "OQ",
-    "OQ P2P>TASHKENT": "OQ",
-    "TOSHKENT SH., AT KHALK BANKI BOSH AMALIY, 99": "Paynet",
-    "UZPAYNET>Shayxontoxu": "Paynet",
-    "PAYNET HUM2UZC NEW>T": "Paynet",
-    "UZPAYNET>Toshkent Sh": "Paynet",
-    "UZCARD OTHERS 2 ANY PAYNET, 99": "Paynet",
-    "PAYNET P2P HUM2UZC>S": "Paynet",
-    "TOSHKENT SH., MIKROKREDITBANK ATB BOSH, UZ": "Mavrid",
-    "MKBANK MAVRID UZCARD": "Mavrid",
-    "MKBANK P2P UZCARD MAVRID, UZ": "Mavrid",
-    "UZCARD PLYUS P2P, 99": "Joyda",
-    "UZCARD PLYUS P2P HUMO BOSHQA BANK, 99": "Joyda",
-    "UZCARD P2P, UZ": "Agrobank",
-    "ASAKABANK HUMO UZCAR": "Asakabank",
-    "TOSHKENT SH., ASAKA AT BANKINING BOSH, 99": "Asakabank",
-    "ASAKABANK UZCARD HUMO P2P BB, 99": "Asakabank",
-    "ASAKA HUMO UZCARD P2": "Asakabank",
-    "SMARTBANK P2P O2O UZCARD, UZ": "SmartBank",
-    "SMARTBANK UZCARD HUMO P2P, UZ": "SmartBank",
-    "SmartBank P2P UZCARD": "SmartBank",
-    "SmartBank P2P HUMO U": "SmartBank",
-    "SmartBank P2P O2O HU": "SmartBank",
-    "BEEPUL UZCARD 2 UZCARD, UZ": "Beepul",
-    "BEEPUL UZCARD 2 HUMO, UZ": "Beepul",
-    "PAYWAY 05, UZ": "PayWay",
-    "PAYME P2P, UZ": "Payme",
-    "UB PEREVOD CROSSBORDER 6 SEND, UZ": "UzumBank",
-    "SQB MOBILE UZCARD P2P UZCARD, UZ": "SQB",
-    "SQB MOBILE HUMO P2P": "SQB",
-    "CHAKANAPAY UZCARD TOUZCARD, UZ": "Chakanapay",
-    "ChakanaPay Humo to Uzcard": "Chakanapay",
-    "ChakanaPay Humo Uzcard": "Chakanapay"
-  }
+    "version": 1,
+    "updated_at": "2025-01-01",
+    "operators": {
+        "Milliy 2.0": {
+            "display_name": "Milliy 2.0",
+            "category": "bank",
+            "country": "UZ",
+            "tags": [
+                "nbu",
+                "p2p",
+                "mobile"
+            ],
+            "applications": [
+                "Milliy"
+            ]
+        },
+        "MyUztelecom": {
+            "display_name": "MyUztelecom",
+            "category": "telecom",
+            "country": "UZ",
+            "tags": [
+                "uztelecom",
+                "mobile",
+                "wallet"
+            ],
+            "applications": [
+                "MyUztelecom"
+            ]
+        },
+        "Humans": {
+            "display_name": "Humans",
+            "category": "digital_wallet",
+            "country": "UZ",
+            "tags": [
+                "telecom",
+                "wallet",
+                "upay"
+            ],
+            "applications": [
+                "Humans"
+            ]
+        },
+        "Tenge24": {
+            "display_name": "Tenge24",
+            "category": "payment_service",
+            "country": "UZ",
+            "tags": [
+                "p2p",
+                "nbu"
+            ],
+            "applications": [
+                "Tenge24"
+            ]
+        },
+        "Xazna": {
+            "display_name": "Xazna",
+            "category": "payment_service",
+            "country": "UZ",
+            "tags": [
+                "treasury",
+                "p2p"
+            ],
+            "applications": [
+                "Xazna"
+            ]
+        },
+        "Davr Mobile": {
+            "display_name": "Davr Mobile",
+            "category": "bank",
+            "country": "UZ",
+            "tags": [
+                "davrbank",
+                "mobile",
+                "p2p"
+            ],
+            "applications": [
+                "Davr Mobile"
+            ]
+        },
+        "Hamkor": {
+            "display_name": "Hamkorbank",
+            "category": "bank",
+            "country": "UZ",
+            "tags": [
+                "hamkorbank",
+                "p2p"
+            ],
+            "applications": [
+                "Hamkor Mobile"
+            ]
+        },
+        "OQ": {
+            "display_name": "OQ",
+            "category": "bank",
+            "country": "UZ",
+            "tags": [
+                "oqbank",
+                "p2p"
+            ],
+            "applications": [
+                "OQ"
+            ]
+        },
+        "Paynet": {
+            "display_name": "Paynet",
+            "category": "aggregator",
+            "country": "UZ",
+            "tags": [
+                "merchant",
+                "p2p"
+            ],
+            "applications": [
+                "Paynet"
+            ]
+        },
+        "Mavrid": {
+            "display_name": "Mavrid",
+            "category": "payment_service",
+            "country": "UZ",
+            "tags": [
+                "mavrid",
+                "mikrokreditbank"
+            ],
+            "applications": [
+                "Mavrid"
+            ]
+        },
+        "Joyda": {
+            "display_name": "Joyda",
+            "category": "payment_service",
+            "country": "UZ",
+            "tags": [
+                "uzcard",
+                "plus"
+            ],
+            "applications": [
+                "Joyda"
+            ]
+        },
+        "Agrobank": {
+            "display_name": "Agrobank",
+            "category": "bank",
+            "country": "UZ",
+            "tags": [
+                "agrobank",
+                "p2p"
+            ],
+            "applications": [
+                "Agrobank Mobile"
+            ]
+        },
+        "Asakabank": {
+            "display_name": "Asakabank",
+            "category": "bank",
+            "country": "UZ",
+            "tags": [
+                "asaka",
+                "p2p"
+            ],
+            "applications": [
+                "Asakabank Mobile"
+            ]
+        },
+        "SmartBank": {
+            "display_name": "Smartbank",
+            "category": "fintech",
+            "country": "UZ",
+            "tags": [
+                "smartbank",
+                "p2p"
+            ],
+            "applications": [
+                "SmartBank"
+            ]
+        },
+        "Beepul": {
+            "display_name": "Beepul",
+            "category": "fintech",
+            "country": "UZ",
+            "tags": [
+                "beepul",
+                "aggregator"
+            ],
+            "applications": [
+                "Beepul"
+            ]
+        },
+        "PayWay": {
+            "display_name": "PayWay",
+            "category": "payment_service",
+            "country": "UZ",
+            "tags": [
+                "payway",
+                "aggregator"
+            ],
+            "applications": [
+                "PayWay"
+            ]
+        },
+        "Payme": {
+            "display_name": "Payme",
+            "category": "payment_service",
+            "country": "UZ",
+            "tags": [
+                "payme",
+                "wallet"
+            ],
+            "applications": [
+                "Payme"
+            ]
+        },
+        "UzumBank": {
+            "display_name": "Uzum Bank",
+            "category": "bank",
+            "country": "UZ",
+            "tags": [
+                "uzum",
+                "p2p",
+                "crossborder"
+            ],
+            "applications": [
+                "UzumBank"
+            ]
+        },
+        "SQB": {
+            "display_name": "SQB",
+            "category": "bank",
+            "country": "UZ",
+            "tags": [
+                "sqb",
+                "p2p"
+            ],
+            "applications": [
+                "SQB Mobile"
+            ]
+        },
+        "Chakanapay": {
+            "display_name": "ChakanaPay",
+            "category": "payment_service",
+            "country": "UZ",
+            "tags": [
+                "chakanapay",
+                "aggregator"
+            ],
+            "applications": [
+                "ChakanaPay"
+            ]
+        }
+    },
+    "applications": {
+        "Milliy": {
+            "display_name": "Milliy",
+            "operator": "Milliy 2.0",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "nbu",
+                "banking"
+            ]
+        },
+        "MyUztelecom": {
+            "display_name": "MyUztelecom",
+            "operator": "MyUztelecom",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "telecom",
+                "wallet"
+            ]
+        },
+        "Humans": {
+            "display_name": "Humans",
+            "operator": "Humans",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "payments",
+                "telecom"
+            ]
+        },
+        "Tenge24": {
+            "display_name": "Tenge24",
+            "operator": "Tenge24",
+            "platforms": [
+                "web"
+            ],
+            "tags": [
+                "p2p",
+                "interbank"
+            ]
+        },
+        "Xazna": {
+            "display_name": "Xazna",
+            "operator": "Xazna",
+            "platforms": [
+                "web"
+            ],
+            "tags": [
+                "treasury"
+            ]
+        },
+        "Davr Mobile": {
+            "display_name": "Davr Mobile",
+            "operator": "Davr Mobile",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "banking",
+                "wallet"
+            ]
+        },
+        "Hamkor Mobile": {
+            "display_name": "Hamkor Mobile",
+            "operator": "Hamkor",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "banking"
+            ]
+        },
+        "OQ": {
+            "display_name": "OQ",
+            "operator": "OQ",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "banking"
+            ]
+        },
+        "Paynet": {
+            "display_name": "Paynet",
+            "operator": "Paynet",
+            "platforms": [
+                "web"
+            ],
+            "tags": [
+                "payments"
+            ]
+        },
+        "Mavrid": {
+            "display_name": "Mavrid",
+            "operator": "Mavrid",
+            "platforms": [
+                "web"
+            ],
+            "tags": [
+                "payments"
+            ]
+        },
+        "Joyda": {
+            "display_name": "Joyda",
+            "operator": "Joyda",
+            "platforms": [
+                "web"
+            ],
+            "tags": [
+                "payments"
+            ]
+        },
+        "Agrobank Mobile": {
+            "display_name": "Agrobank Mobile",
+            "operator": "Agrobank",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "banking"
+            ]
+        },
+        "Asakabank Mobile": {
+            "display_name": "Asakabank Mobile",
+            "operator": "Asakabank",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "banking"
+            ]
+        },
+        "SmartBank": {
+            "display_name": "SmartBank",
+            "operator": "SmartBank",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "banking",
+                "fintech"
+            ]
+        },
+        "Beepul": {
+            "display_name": "Beepul",
+            "operator": "Beepul",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "payments"
+            ]
+        },
+        "PayWay": {
+            "display_name": "PayWay",
+            "operator": "PayWay",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "payments"
+            ]
+        },
+        "Payme": {
+            "display_name": "Payme",
+            "operator": "Payme",
+            "platforms": [
+                "ios",
+                "android",
+                "web"
+            ],
+            "tags": [
+                "wallet"
+            ]
+        },
+        "UzumBank": {
+            "display_name": "Uzum Bank",
+            "operator": "UzumBank",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "banking"
+            ]
+        },
+        "SQB Mobile": {
+            "display_name": "SQB Mobile",
+            "operator": "SQB",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "banking"
+            ]
+        },
+        "ChakanaPay": {
+            "display_name": "ChakanaPay",
+            "operator": "Chakanapay",
+            "platforms": [
+                "ios",
+                "android"
+            ],
+            "tags": [
+                "payments"
+            ]
+        }
+    },
+    "aliases": [
+        {
+            "alias": "NBU 2P2 U PLAT UZCARD, 99",
+            "operator": "Milliy 2.0",
+            "application": "Milliy"
+        },
+        {
+            "alias": "NBU P2P HUMO UZCARD>",
+            "operator": "Milliy 2.0",
+            "application": "Milliy"
+        },
+        {
+            "alias": "NBU P2P HUMOHUMO>tas",
+            "operator": "Milliy 2.0",
+            "application": "Milliy"
+        },
+        {
+            "alias": "NBU P2P UZCARD HUMO, 99",
+            "operator": "Milliy 2.0",
+            "application": "Milliy"
+        },
+        {
+            "alias": "PSP P2P AKSIYA>TASHK",
+            "operator": "MyUztelecom",
+            "application": "MyUztelecom"
+        },
+        {
+            "alias": "PSP P2P AKSIYA, UZ",
+            "operator": "MyUztelecom",
+            "application": "MyUztelecom"
+        },
+        {
+            "alias": "PSP P2P HUMO2UZCARD>",
+            "operator": "MyUztelecom",
+            "application": "MyUztelecom"
+        },
+        {
+            "alias": "UPAY P2P",
+            "operator": "Humans",
+            "application": "Humans"
+        },
+        {
+            "alias": "UPAY P2P, UZ",
+            "operator": "Humans",
+            "application": "Humans"
+        },
+        {
+            "alias": "UPAY Humo2Uzcard>TOS",
+            "operator": "Humans",
+            "application": "Humans"
+        },
+        {
+            "alias": "UPAY UZCARD2HUMO, UZ",
+            "operator": "Humans",
+            "application": "Humans"
+        },
+        {
+            "alias": "UPAY HUMO2HUMO P2P>T",
+            "operator": "Humans",
+            "application": "Humans"
+        },
+        {
+            "alias": "DAVR UPAY HUMANS UZCARD2UZCARD, UZ",
+            "operator": "Humans",
+            "application": "Humans"
+        },
+        {
+            "alias": "DAVR UPAY HUMANS UZCARD2HU, UZ",
+            "operator": "Humans",
+            "application": "Humans"
+        },
+        {
+            "alias": "TENGE UNIVERSAL P2P, UZ",
+            "operator": "Tenge24",
+            "application": "Tenge24"
+        },
+        {
+            "alias": "T24 P2P Humo to Uzca",
+            "operator": "Tenge24",
+            "application": "Tenge24"
+        },
+        {
+            "alias": "NEW DBO UZKART-HUMO, UZ",
+            "operator": "Tenge24",
+            "application": "Tenge24"
+        },
+        {
+            "alias": "TENGE 24 P2P UZCARD UZCARD, UZ",
+            "operator": "Tenge24",
+            "application": "Tenge24"
+        },
+        {
+            "alias": "TENGE 24 P2P UZCARD HUMO, UZ",
+            "operator": "Tenge24",
+            "application": "Tenge24"
+        },
+        {
+            "alias": "Tenge24 P2P UZCARDHU",
+            "operator": "Tenge24",
+            "application": "Tenge24"
+        },
+        {
+            "alias": "TENGE-24 WS P2P INTERBANK, UZ",
+            "operator": "Tenge24",
+            "application": "Tenge24"
+        },
+        {
+            "alias": "TENGE-24 WS P2P INTERBANK SPISANIYE UZCA, UZ",
+            "operator": "Tenge24",
+            "application": "Tenge24"
+        },
+        {
+            "alias": "TENGE-24 WS P2P U2H-E, UZ",
+            "operator": "Tenge24",
+            "application": "Tenge24"
+        },
+        {
+            "alias": "TENGE24 WS P2P H2UEW",
+            "operator": "Tenge24",
+            "application": "Tenge24"
+        },
+        {
+            "alias": "XAZNA OTHERS 2 ANY, 99",
+            "operator": "Xazna",
+            "application": "Xazna"
+        },
+        {
+            "alias": "XAZNA OTHERS TO HUMO, 99",
+            "operator": "Xazna",
+            "application": "Xazna"
+        },
+        {
+            "alias": "XAZNA HUMO 2 UZCARD",
+            "operator": "Xazna",
+            "application": "Xazna"
+        },
+        {
+            "alias": "XAZNA P2P>TOSHKENT",
+            "operator": "Xazna",
+            "application": "Xazna"
+        },
+        {
+            "alias": "DAVR MOBILE UZCARD UZCARD, UZ",
+            "operator": "Davr Mobile",
+            "application": "Davr Mobile"
+        },
+        {
+            "alias": "DAVR MOBILE P2P H2U>",
+            "operator": "Davr Mobile",
+            "application": "Davr Mobile"
+        },
+        {
+            "alias": "DAVR MOBILE P2P H2H>",
+            "operator": "Davr Mobile",
+            "application": "Davr Mobile"
+        },
+        {
+            "alias": "DAVR MOBILE HUMO UZCARD, UZ",
+            "operator": "Davr Mobile",
+            "application": "Davr Mobile"
+        },
+        {
+            "alias": "DAVR MOBILE P2P KOMIS, UZ",
+            "operator": "Davr Mobile",
+            "application": "Davr Mobile"
+        },
+        {
+            "alias": "DAVR MOBILE UZCARD HUMO, UZ",
+            "operator": "Davr Mobile",
+            "application": "Davr Mobile"
+        },
+        {
+            "alias": "HAMKORBANK ATB, UZ",
+            "operator": "Hamkor",
+            "application": "Hamkor Mobile"
+        },
+        {
+            "alias": "HAMKOR P2P UZKARD>AN",
+            "operator": "Hamkor",
+            "application": "Hamkor Mobile"
+        },
+        {
+            "alias": "OQ P2P, UZ",
+            "operator": "OQ",
+            "application": "OQ"
+        },
+        {
+            "alias": "OQ P2P>TASHKENT",
+            "operator": "OQ",
+            "application": "OQ"
+        },
+        {
+            "alias": "TOSHKENT SH., AT KHALK BANKI BOSH AMALIY, 99",
+            "operator": "Paynet",
+            "application": "Paynet"
+        },
+        {
+            "alias": "UZPAYNET>Shayxontoxu",
+            "operator": "Paynet",
+            "application": "Paynet"
+        },
+        {
+            "alias": "PAYNET HUM2UZC NEW>T",
+            "operator": "Paynet",
+            "application": "Paynet"
+        },
+        {
+            "alias": "UZPAYNET>Toshkent Sh",
+            "operator": "Paynet",
+            "application": "Paynet"
+        },
+        {
+            "alias": "UZCARD OTHERS 2 ANY PAYNET, 99",
+            "operator": "Paynet",
+            "application": "Paynet"
+        },
+        {
+            "alias": "PAYNET P2P HUM2UZC>S",
+            "operator": "Paynet",
+            "application": "Paynet"
+        },
+        {
+            "alias": "TOSHKENT SH., MIKROKREDITBANK ATB BOSH, UZ",
+            "operator": "Mavrid",
+            "application": "Mavrid"
+        },
+        {
+            "alias": "MKBANK MAVRID UZCARD",
+            "operator": "Mavrid",
+            "application": "Mavrid"
+        },
+        {
+            "alias": "MKBANK P2P UZCARD MAVRID, UZ",
+            "operator": "Mavrid",
+            "application": "Mavrid"
+        },
+        {
+            "alias": "UZCARD PLYUS P2P, 99",
+            "operator": "Joyda",
+            "application": "Joyda"
+        },
+        {
+            "alias": "UZCARD PLYUS P2P HUMO BOSHQA BANK, 99",
+            "operator": "Joyda",
+            "application": "Joyda"
+        },
+        {
+            "alias": "UZCARD P2P, UZ",
+            "operator": "Agrobank",
+            "application": "Agrobank Mobile"
+        },
+        {
+            "alias": "ASAKABANK HUMO UZCAR",
+            "operator": "Asakabank",
+            "application": "Asakabank Mobile"
+        },
+        {
+            "alias": "TOSHKENT SH., ASAKA AT BANKINING BOSH, 99",
+            "operator": "Asakabank",
+            "application": "Asakabank Mobile"
+        },
+        {
+            "alias": "ASAKABANK UZCARD HUMO P2P BB, 99",
+            "operator": "Asakabank",
+            "application": "Asakabank Mobile"
+        },
+        {
+            "alias": "ASAKA HUMO UZCARD P2",
+            "operator": "Asakabank",
+            "application": "Asakabank Mobile"
+        },
+        {
+            "alias": "SMARTBANK P2P O2O UZCARD, UZ",
+            "operator": "SmartBank",
+            "application": "SmartBank"
+        },
+        {
+            "alias": "SMARTBANK UZCARD HUMO P2P, UZ",
+            "operator": "SmartBank",
+            "application": "SmartBank"
+        },
+        {
+            "alias": "SmartBank P2P UZCARD",
+            "operator": "SmartBank",
+            "application": "SmartBank"
+        },
+        {
+            "alias": "SmartBank P2P HUMO U",
+            "operator": "SmartBank",
+            "application": "SmartBank"
+        },
+        {
+            "alias": "SmartBank P2P O2O HU",
+            "operator": "SmartBank",
+            "application": "SmartBank"
+        },
+        {
+            "alias": "BEEPUL UZCARD 2 UZCARD, UZ",
+            "operator": "Beepul",
+            "application": "Beepul"
+        },
+        {
+            "alias": "BEEPUL UZCARD 2 HUMO, UZ",
+            "operator": "Beepul",
+            "application": "Beepul"
+        },
+        {
+            "alias": "PAYWAY 05, UZ",
+            "operator": "PayWay",
+            "application": "PayWay"
+        },
+        {
+            "alias": "PAYME P2P, UZ",
+            "operator": "Payme",
+            "application": "Payme"
+        },
+        {
+            "alias": "UB PEREVOD CROSSBORDER 6 SEND, UZ",
+            "operator": "UzumBank",
+            "application": "UzumBank"
+        },
+        {
+            "alias": "SQB MOBILE UZCARD P2P UZCARD, UZ",
+            "operator": "SQB",
+            "application": "SQB Mobile"
+        },
+        {
+            "alias": "SQB MOBILE HUMO P2P",
+            "operator": "SQB",
+            "application": "SQB Mobile"
+        },
+        {
+            "alias": "CHAKANAPAY UZCARD TOUZCARD, UZ",
+            "operator": "Chakanapay",
+            "application": "ChakanaPay"
+        },
+        {
+            "alias": "ChakanaPay Humo to Uzcard",
+            "operator": "Chakanapay",
+            "application": "ChakanaPay"
+        },
+        {
+            "alias": "ChakanaPay Humo Uzcard",
+            "operator": "Chakanapay",
+            "application": "ChakanaPay"
+        }
+    ]
 }
