@@ -2,7 +2,7 @@ import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
-from datetime import datetime
+from datetime import datetime, date, time
 import io
 from typing import List, Dict, Optional
 
@@ -64,25 +64,37 @@ class ExcelExportService:
             if isinstance(transaction['date_time'], str):
                 try:
                     date_time_obj = datetime.fromisoformat(transaction['date_time'].replace('Z', '+00:00'))
-                except:
-                    pass
+                    if date_time_obj.tzinfo is not None:
+                        date_time_obj = date_time_obj.replace(tzinfo=None)
+                except Exception:
+                    date_time_obj = None
             else:
                 date_time_obj = transaction['date_time']
-        
+                if isinstance(date_time_obj, datetime) and date_time_obj.tzinfo is not None:
+                    date_time_obj = date_time_obj.replace(tzinfo=None)
+
         # Генерируем номер чека (если нет в данных)
-        receipt_number = f"CHK{str(transaction.get('id', '000')).zfill(3)}"
-        
+        receipt_number = transaction.get('receipt_number')
+        if not receipt_number:
+            receipt_number = f"CHK{str(transaction.get('id', '000')).zfill(3)}"
+
         # Определяем P2P (пока заглушка, так как в модели нет этого поля)
         p2p_value = 'Нет'  # По умолчанию
         if transaction.get('operation_type') == 'conversion':
             p2p_value = 'Да'
-        
+
+        date_value: Optional[date] = None
+        time_value: Optional[time] = None
+        if isinstance(date_time_obj, datetime):
+            date_value = date_time_obj.date()
+            time_value = date_time_obj.time().replace(second=0, microsecond=0)
+
         return [
             receipt_number,  # Номер чека
-            date_time_obj.strftime('%d.%m.%Y, %H:%M') if date_time_obj else '',  # Дата и время
+            date_time_obj if date_time_obj else None,  # Дата и время
             self._get_day_of_week(date_time_obj),  # Д.н.
-            date_time_obj.strftime('%d.%m.%Y') if date_time_obj else '',  # Дата
-            date_time_obj.strftime('%H:%M') if date_time_obj else '',  # Время
+            date_value,  # Дата
+            time_value,  # Время
             transaction.get('operator_name', ''),  # Оператор/Продавец
             transaction.get('operator_description', ''),  # Приложение
             transaction.get('amount', 0),  # Сумма
@@ -154,11 +166,18 @@ class ExcelExportService:
                     cell.alignment = Alignment(horizontal='right')
                     if isinstance(value, (int, float)):
                         cell.number_format = '#,##0.00'
-                elif col_idx in [1, 3, 4, 5]:  # Номер чека, Дата, Время, Д.н.
+                elif col_idx in [1, 2, 3, 4, 5]:  # Номер чека, Дата и время, Дата, Время, Д.н.
                     cell.alignment = Alignment(horizontal='center')
                 else:
                     cell.alignment = Alignment(horizontal='left')
-                
+
+                if isinstance(value, datetime):
+                    cell.number_format = 'dd.mm.yyyy hh:mm'
+                elif isinstance(value, date):
+                    cell.number_format = 'dd.mm.yyyy'
+                elif isinstance(value, time):
+                    cell.number_format = 'hh:mm'
+
                 # Границы для всех ячеек
                 cell.border = thin_border
         
