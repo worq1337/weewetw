@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Save, X } from 'lucide-react'
+import { ArrowLeft, Save, Sparkles, Upload, X } from 'lucide-react'
 import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js'
 import {
   manualTransactionFieldGroups,
@@ -59,6 +59,10 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [receiptText, setReceiptText] = useState('')
+  const [parsePreview, setParsePreview] = useState(null)
+  const [parseLoading, setParseLoading] = useState(false)
+  const [parseError, setParseError] = useState('')
 
   useEffect(() => {
     const fetchOperators = async () => {
@@ -159,11 +163,74 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
     }
   }
 
+  const handleParseAndSave = async (event) => {
+    event.preventDefault()
+    setParseError('')
+    setSuccessMessage('')
+
+    if (!receiptText.trim()) {
+      setParseError('Вставьте текст чека для распознавания')
+      return
+    }
+
+    setParseLoading(true)
+
+    try {
+      const response = await apiFetch('/api/ai/parse-and-save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: receiptText,
+          telegram_id: DEFAULT_TELEGRAM_ID,
+          username: 'web-client'
+        })
+      })
+
+      if (!response.ok) {
+        let errorText = 'Не удалось распознать чек'
+        try {
+          const errorData = await response.json()
+          errorText = errorData.error || errorText
+        } catch (parseError) {
+          console.warn('Не удалось разобрать ответ об ошибке:', parseError)
+        }
+        throw new Error(errorText)
+      }
+
+      const data = await response.json()
+      const createdTransaction = data.transaction
+
+      if (createdTransaction) {
+        onTransactionAdded?.(createdTransaction)
+      }
+
+      setParsePreview(data.parsed_data || null)
+      setReceiptText('')
+      setSuccessMessage('Чек распознан и сохранен')
+
+      setTimeout(() => {
+        setSuccessMessage('')
+        onBack()
+      }, 1500)
+    } catch (error) {
+      setParseError(error.message || 'Ошибка при распознавании чека')
+      setParsePreview(null)
+    } finally {
+      setParseLoading(false)
+    }
+  }
+
   const handleReset = () => {
     setFormValues(createEmptyManualTransaction())
     setErrors({})
     setErrorMessage('')
     setSuccessMessage('')
+    setReceiptText('')
+    setParseError('')
+    setParsePreview(null)
+    setParseLoading(false)
   }
 
   const renderFieldControl = (field) => {
@@ -244,7 +311,79 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
           <h1 className="text-2xl font-bold text-gray-800">Добавить чек вручную</h1>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="bg-white rounded-lg shadow-sm border p-6 space-y-8">
+          <section className="space-y-4">
+            <header className="space-y-2">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <Sparkles size={18} className="text-blue-500" />
+                Распознать чек через AI
+              </h2>
+              <p className="text-sm text-gray-500">
+                Вставьте текст чека, чтобы система распарсила его и сразу добавила в таблицу.
+              </p>
+            </header>
+
+            <form onSubmit={handleParseAndSave} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="receipt-text" className="text-sm font-medium text-gray-700">
+                  Текст чека
+                </label>
+                <textarea
+                  id="receipt-text"
+                  value={receiptText}
+                  onChange={(event) => setReceiptText(event.target.value)}
+                  rows={6}
+                  placeholder="Например, скопируйте текст из Telegram-бота"
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {parseError && (
+                <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700">
+                  {parseError}
+                </div>
+              )}
+
+              {parsePreview && (
+                <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 text-sm text-blue-800">
+                  <div className="font-medium mb-2">Предпросмотр</div>
+                  <pre className="text-xs whitespace-pre-wrap text-blue-900 bg-white/70 border border-blue-100 rounded-md p-2 overflow-x-auto">
+                    {JSON.stringify(parsePreview, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="p-3 rounded-lg border border-green-200 bg-green-50 text-sm text-green-700">
+                  {successMessage}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={parseLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Upload size={18} />
+                  {parseLoading ? 'Распознаем…' : 'Распознать и сохранить'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReceiptText('')
+                    setParseError('')
+                    setParsePreview(null)
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+                >
+                  <X size={16} />
+                  Очистить
+                </button>
+              </div>
+            </form>
+          </section>
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {manualTransactionFieldGroups.map(group => (
               <section key={group.id} className="space-y-4">
