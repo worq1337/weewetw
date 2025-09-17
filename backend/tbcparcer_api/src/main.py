@@ -20,6 +20,8 @@ from src.routes.operator import operator_bp
 from src.routes.ai_parsing import ai_parsing_bp
 from src.routes.export import export_bp
 from src.routes.trash import trash_bp
+from src.routes.dictionary import dictionary_bp
+from src.services.operator_dictionary import get_operator_dictionary
 
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
 app.config['SECRET_KEY'] = 'tbcparcer_secret_key_2025'
@@ -33,6 +35,7 @@ app.register_blueprint(operator_bp, url_prefix='/api')
 app.register_blueprint(ai_parsing_bp, url_prefix='/api/ai')
 app.register_blueprint(export_bp, url_prefix='/api/export')
 app.register_blueprint(trash_bp, url_prefix='/api')
+app.register_blueprint(dictionary_bp, url_prefix='/api')
 
 # Настройка базы данных
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
@@ -113,7 +116,14 @@ def healthcheck():
 # Создание таблиц и загрузка операторов
 with app.app_context():
     db.create_all()
-    
+
+    # Предзагрузка словаря операторов
+    try:
+        dictionary = get_operator_dictionary()
+        app.logger.info('Loaded operator dictionary with %d entries', dictionary.size())
+    except Exception as dict_error:  # pragma: no cover - диагностика
+        app.logger.warning('Failed to load operator dictionary: %s', dict_error)
+
     # Загружаем операторы из словаря, если их еще нет
     if Operator.query.count() == 0:
         operators_data = [
