@@ -6,6 +6,11 @@ from typing import Dict, Optional, Sequence
 
 import openai
 
+from src.services.operator_dictionary import (
+    get_operator_dictionary,
+    normalize_operator_value,
+)
+
 
 class LocalReceiptParser:
     """Rule-based parser that extracts receipt data without external APIs."""
@@ -389,7 +394,22 @@ class AIParsingService:
         if 'operator' not in parsed_data or not parsed_data['operator']:
             return parsed_data
 
-        operator_name = str(parsed_data['operator']).upper()
+        dictionary = get_operator_dictionary()
+        original_operator = str(parsed_data['operator']).strip()
+        dictionary_entry = dictionary.lookup(original_operator)
+
+        if dictionary_entry:
+            resolved_alias = dictionary_entry['alias']
+            resolved_brand = dictionary_entry['operator']
+            if resolved_alias != original_operator:
+                parsed_data['operator_raw'] = original_operator
+                parsed_data['operator'] = resolved_alias
+            parsed_data.setdefault('operator_description', resolved_brand)
+        else:
+            resolved_alias = original_operator
+            resolved_brand = None
+
+        target_normalized = normalize_operator_value(resolved_alias)
 
         normalized_operators = []
         for operator in operators_list:
@@ -399,13 +419,37 @@ class AIParsingService:
                 normalized_operators.append(operator.to_dict())
 
         # Ищем оператора в базе данных
+        matched_operator: Optional[Dict] = None
         for operator in normalized_operators:
             name = operator.get('name')
-            if name and name.upper() == operator_name:
-                parsed_data['operator_id'] = operator.get('id')
-                parsed_data['operator_name'] = name
-                parsed_data['operator_description'] = operator.get('description', '')
+            if not name:
+                continue
+
+            normalized_name = normalize_operator_value(name)
+            if not normalized_name:
+                continue
+
+            if (
+                normalized_name == target_normalized
+                or normalized_name in target_normalized
+                or target_normalized in normalized_name
+            ):
+                matched_operator = operator
                 break
+
+        if matched_operator:
+            parsed_data['operator_id'] = matched_operator.get('id')
+            parsed_data['operator_name'] = matched_operator.get('name')
+            description = matched_operator.get('description', '')
+            if description:
+                parsed_data['operator_description'] = description
+            elif resolved_brand:
+                parsed_data['operator_description'] = resolved_brand
+        else:
+            if resolved_alias:
+                parsed_data.setdefault('operator_name', resolved_alias)
+            if resolved_brand:
+                parsed_data.setdefault('operator_description', resolved_brand)
 
         return parsed_data
     
