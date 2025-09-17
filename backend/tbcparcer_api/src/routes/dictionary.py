@@ -113,7 +113,7 @@ def reload_dictionary():
     before_examples = _collect_examples(dictionary)
 
     try:
-        loaded_entries = reload_operator_dictionary()
+        reload_result = reload_operator_dictionary()
     except FileNotFoundError:
         return jsonify({'status': 'error', 'message': 'Dictionary file not found'}), 500
     except ValueError as error:
@@ -124,17 +124,23 @@ def reload_dictionary():
 
     current_app.logger.info(
         'Operator dictionary hot-reloaded: %d entries (before=%d)',
-        loaded_entries,
+        reload_result['entries'],
         before_entries,
     )
 
     payload = {
         'status': 'ok',
-        'entries': loaded_entries,
+        'entries': reload_result['entries'],
+        'changed': reload_result['changed'],
         'before_entries': before_entries,
         'after_entries': dictionary.size(),
         'path': str(dictionary.path),
         'metadata': metadata,
+        'dictionary': {
+            'version': reload_result.get('version'),
+            'checksum': reload_result.get('checksum'),
+            'sources': dictionary.sources(),
+        },
         'reloaded_at': datetime.now(timezone.utc).isoformat(),
         'examples': {
             'before': before_examples,

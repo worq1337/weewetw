@@ -24,6 +24,9 @@ INITIAL_DICTIONARY = {
     "aliases": [
         {"alias": "UPAY P2P", "operator": "Humans", "application": "Humans"},
     ],
+    "sources": [
+        {"url": "https://initial.example", "label": "Initial"},
+    ],
 }
 
 
@@ -99,6 +102,9 @@ def test_reload_refreshes_dictionary_and_metadata(app, client):
             {"alias": "UPAY P2P", "operator": "Humans", "application": "Humans"},
             {"alias": "PAYME P2P, UZ", "operator": "Payme", "application": "Payme"},
         ],
+        "sources": [
+            {"url": "https://directory.example", "label": "Directory"},
+        ],
     }
     dictionary_path.write_text(json.dumps(updated_dictionary, ensure_ascii=False, indent=2), encoding='utf-8')
 
@@ -111,12 +117,21 @@ def test_reload_refreshes_dictionary_and_metadata(app, client):
     payload = response.get_json()
     assert payload['status'] == 'ok'
     assert payload['entries'] == 2
+    assert payload['changed'] is True
     assert payload['metadata'] == {'operators': 2, 'applications': 2}
     assert 'reloaded_at' in payload
     assert payload['before_entries'] == 1
     assert payload['after_entries'] == 2
+    assert payload['dictionary']['version'] == 2
+    assert payload['dictionary']['checksum']
+    assert payload['dictionary']['sources'] == [
+        {'url': 'https://directory.example', 'label': 'Directory'}
+    ]
 
     dictionary = dictionary_module.get_operator_dictionary()
     lookup = dictionary.lookup('PAYME P2P, UZ')
     assert lookup
     assert lookup['operator'] == 'Payme'
+    assert dictionary.sources() == [
+        {'url': 'https://directory.example', 'label': 'Directory'}
+    ]

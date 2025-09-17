@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import threading
@@ -22,7 +23,9 @@ class OperatorDictionary:
         self._entries: List[Dict[str, str]] = []
         self._operators: Dict[str, Dict[str, Any]] = {}
         self._applications: Dict[str, Dict[str, Any]] = {}
+        self._sources: List[Dict[str, str]] = []
         self._version: Optional[Any] = None
+        self._checksum: Optional[str] = None
         self.reload()
 
     def _load_file(self) -> Dict:
@@ -36,6 +39,7 @@ class OperatorDictionary:
         raw_aliases = data.get('aliases', {})
         raw_operator_map = data.get('operators', {})
         raw_application_map = data.get('applications', {})
+        raw_sources = data.get('sources', [])
 
         operator_map: Dict[str, Dict[str, Any]] = {}
         if isinstance(raw_operator_map, dict):
@@ -114,11 +118,33 @@ class OperatorDictionary:
 
         entries.sort(key=lambda entry: len(entry['normalized']), reverse=True)
 
+        sources: List[Dict[str, str]] = []
+        if isinstance(raw_sources, list):
+            for candidate in raw_sources:
+                if isinstance(candidate, dict):
+                    url = str(candidate.get('url', '')).strip()
+                    if not url:
+                        continue
+                    source_entry: Dict[str, str] = {'url': url}
+                    label = candidate.get('label')
+                    if isinstance(label, str) and label.strip():
+                        source_entry['label'] = label.strip()
+                    sources.append(source_entry)
+                elif isinstance(candidate, str):
+                    url = candidate.strip()
+                    if url:
+                        sources.append({'url': url})
+
+        serialized = json.dumps(data, ensure_ascii=False, sort_keys=True).encode('utf-8')
+        checksum = hashlib.sha256(serialized).hexdigest()
+
         with self._lock:
             self._entries = entries
             self._operators = operator_map
             self._applications = application_map
             self._version = data.get('version')
+            self._sources = sources
+            self._checksum = checksum
 
         return len(entries)
 
@@ -156,6 +182,14 @@ class OperatorDictionary:
     def size(self) -> int:
         with self._lock:
             return len(self._entries)
+
+    def checksum(self) -> Optional[str]:
+        with self._lock:
+            return self._checksum
+
+    def sources(self) -> List[Dict[str, str]]:
+        with self._lock:
+            return [source.copy() for source in self._sources]
 
     def get_operator_metadata(self, name: Optional[str]) -> Dict[str, Any]:
         if not name:
@@ -211,9 +245,17 @@ def get_operator_dictionary() -> OperatorDictionary:
         return _DICTIONARY_INSTANCE
 
 
-def reload_operator_dictionary() -> int:
+def reload_operator_dictionary() -> Dict[str, Any]:
     dictionary = get_operator_dictionary()
-    return dictionary.reload()
+    previous_checksum = dictionary.checksum()
+    entries = dictionary.reload()
+    current_checksum = dictionary.checksum()
+    return {
+        'entries': entries,
+        'changed': previous_checksum != current_checksum,
+        'checksum': current_checksum,
+        'version': dictionary.version,
+    }
 
 
 def normalize_operator_value(value: str, dictionary: Optional[OperatorDictionary] = None) -> str:
