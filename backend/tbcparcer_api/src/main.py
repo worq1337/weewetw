@@ -1,10 +1,15 @@
 import os
 import sys
+from datetime import datetime
+
+from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
+from sqlalchemy import text
+from werkzeug.exceptions import HTTPException
+
 # DON'T CHANGE THIS !!!
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from flask import Flask, send_from_directory
-from flask_cors import CORS
 from src.models.user import db
 from src.models.operator import Operator
 from src.models.transaction import Transaction
@@ -33,6 +38,77 @@ app.register_blueprint(trash_bp, url_prefix='/api')
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.path.dirname(__file__), 'database', 'app.db')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(error: HTTPException):
+    """Возвращать JSON-ошибки для API-запросов."""
+    try:
+        path = request.path
+    except RuntimeError:
+        path = ''
+
+    if path.startswith('/api'):
+        response = {
+            'error': error.name,
+            'message': error.description,
+            'status_code': error.code,
+            'path': path,
+        }
+        return jsonify(response), error.code
+
+    return error
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(error: Exception):
+    """Логировать и оборачивать необработанные исключения для API."""
+    try:
+        path = request.path
+    except RuntimeError:
+        path = ''
+
+    app.logger.exception('Unhandled exception on %s', path or 'unknown path')
+
+    if path.startswith('/api'):
+        response = {
+            'error': 'Internal Server Error',
+            'message': str(error),
+            'status_code': 500,
+            'path': path,
+        }
+        return jsonify(response), 500
+
+    return app.handle_exception(error)
+
+
+@app.route('/health', methods=['GET'])
+def healthcheck():
+    """Простое состояние сервиса и зависимостей."""
+    db_status = 'ok'
+    db_details = None
+
+    try:
+        db.session.execute(text('SELECT 1'))
+    except Exception as exc:  # pragma: no cover - диагностика окружения
+        db_status = 'error'
+        db_details = str(exc)
+
+    openai_configured = bool(os.getenv('OPENAI_API_KEY'))
+    status_code = 200 if db_status == 'ok' else 503
+
+    payload = {
+        'status': 'ok' if status_code == 200 else 'degraded',
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'database': {
+            'status': db_status,
+            'details': db_details,
+        },
+        'openai': 'configured' if openai_configured else 'disabled',
+        'version': os.getenv('APP_VERSION', 'unknown'),
+    }
+
+    return jsonify(payload), status_code
 
 # Создание таблиц и загрузка операторов
 with app.app_context():
@@ -145,6 +221,9 @@ def serve(path):
     static_folder_path = app.static_folder
     if static_folder_path is None:
             return "Static folder not configured", 404
+
+    if path.startswith('api/'):
+        return jsonify({'error': 'Not Found', 'path': f'/{path}'}), 404
 
     if path != "" and os.path.exists(os.path.join(static_folder_path, path)):
         return send_from_directory(static_folder_path, path)
