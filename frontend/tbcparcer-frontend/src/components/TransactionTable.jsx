@@ -68,6 +68,15 @@ const HEADER_FALLBACK_CHAR_WIDTH = 9
 const CELL_FALLBACK_CHAR_WIDTH = 8
 const DAY_NAMES = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ']
 const numberFormatter = new Intl.NumberFormat('ru-RU')
+const DATE_FORMATTER = new Intl.DateTimeFormat('ru-RU', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric'
+})
+const TIME_FORMATTER = new Intl.DateTimeFormat('ru-RU', {
+  hour: '2-digit',
+  minute: '2-digit'
+})
 
 const formatCellValue = (transaction, column) => {
   if (!transaction) {
@@ -94,12 +103,17 @@ const formatCellValue = (transaction, column) => {
   }
 
   if (column === 'date_time') {
-    if (!rawValue) {
+    const source = rawValue || transaction.date_time
+    if (!source) {
       return ''
     }
 
-    const date = new Date(rawValue)
-    return Number.isNaN(date.valueOf()) ? '' : date.toLocaleString('ru-RU')
+    const date = new Date(source)
+    if (Number.isNaN(date.valueOf())) {
+      return ''
+    }
+
+    return `${DATE_FORMATTER.format(date)} ${TIME_FORMATTER.format(date)}`
   }
 
   if (column === 'date') {
@@ -109,7 +123,7 @@ const formatCellValue = (transaction, column) => {
     }
 
     const date = new Date(source)
-    return Number.isNaN(date.valueOf()) ? '' : date.toLocaleDateString('ru-RU')
+    return Number.isNaN(date.valueOf()) ? '' : DATE_FORMATTER.format(date)
   }
 
   if (column === 'time') {
@@ -119,9 +133,7 @@ const formatCellValue = (transaction, column) => {
     }
 
     const date = new Date(source)
-    return Number.isNaN(date.valueOf())
-      ? ''
-      : date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    return Number.isNaN(date.valueOf()) ? '' : TIME_FORMATTER.format(date)
   }
 
   if (column === 'day_name') {
