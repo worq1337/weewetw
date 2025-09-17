@@ -182,7 +182,7 @@ class ReceiptPipeline:
 
         if parsed.tzinfo:
             parsed = parsed.replace(tzinfo=None)
-        return parsed
+        return parsed.replace(second=0, microsecond=0)
 
     def _to_float(self, value) -> Optional[float]:
         if value in (None, ''):

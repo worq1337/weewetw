@@ -48,6 +48,8 @@ def _parse_datetime(value: Any) -> datetime:
     if parsed.tzinfo:
         parsed = parsed.replace(tzinfo=None)
 
+    parsed = parsed.replace(second=0, microsecond=0)
+
     return parsed
 
 

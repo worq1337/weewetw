@@ -7,6 +7,7 @@ import {
   validateManualTransaction,
   validateManualTransactionField
 } from '@/lib/manualTransactionSchema.js'
+import { normalizeDateTimeLocalString } from '@/lib/datetime.js'
 
 const buildOperatorOption = (operator) => ({
   value: String(operator.id),
@@ -19,7 +20,7 @@ const buildOperatorOption = (operator) => ({
 const buildPayload = (formValues) => {
   const payload = {
     telegram_id: DEFAULT_TELEGRAM_ID,
-    date_time: formValues.date_time,
+    date_time: normalizeDateTimeLocalString(formValues.date_time),
     operation_type: formValues.operation_type,
     amount: Number(formValues.amount),
     currency: formValues.currency,
@@ -90,6 +91,10 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
   const handleFieldChange = (field, value) => {
     setFormValues(prevValues => {
       const nextValues = { ...prevValues, [field.name]: value }
+
+      if (field.name === 'date_time') {
+        nextValues.date_time = normalizeDateTimeLocalString(value)
+      }
 
       if (field.name === 'operator_id') {
         const selected = operatorOptions.find(option => option.value === value)
@@ -206,7 +211,15 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
         onTransactionAdded?.(createdTransaction)
       }
 
-      setParsePreview(data.parsed_data || null)
+      if (data.parsed_data) {
+        const normalizedPreview = { ...data.parsed_data }
+        if (normalizedPreview.date_time) {
+          normalizedPreview.date_time = normalizeDateTimeLocalString(normalizedPreview.date_time)
+        }
+        setParsePreview(normalizedPreview)
+      } else {
+        setParsePreview(null)
+      }
       setReceiptText('')
       setSuccessMessage('Чек распознан и сохранен')
 
@@ -283,6 +296,7 @@ const AddReceiptPage = ({ onBack, onTransactionAdded }) => {
     } else if (field.type === 'datetime-local') {
       inputSpecificProps.type = 'datetime-local'
       inputSpecificProps.placeholder = field.placeholder
+      inputSpecificProps.step = '60'
     } else {
       inputSpecificProps.type = field.type || 'text'
       if (field.inputMode) {

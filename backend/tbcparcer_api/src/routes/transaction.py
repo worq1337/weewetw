@@ -84,7 +84,8 @@ def update_transaction(transaction_id):
         
         # Обновляем поля
         if 'date_time' in data:
-            transaction.date_time = datetime.fromisoformat(data['date_time'].replace('Z', '+00:00'))
+            parsed_datetime = datetime.fromisoformat(data['date_time'].replace('Z', '+00:00'))
+            transaction.date_time = parsed_datetime.replace(second=0, microsecond=0)
         if 'operation_type' in data:
             transaction.operation_type = data['operation_type']
         if 'amount' in data:
