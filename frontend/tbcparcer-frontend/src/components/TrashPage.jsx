@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { ArrowLeft, RotateCcw, Trash2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import { apiFetch } from '@/lib/api.js'
+import { formatDateTime } from '@/lib/datetime.js'
 
 const TrashPage = ({ onBack }) => {
   const [deletedTransactions, setDeletedTransactions] = useState([])
@@ -104,15 +105,7 @@ const TrashPage = ({ onBack }) => {
     }
   }
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+  const formatDate = (dateString) => formatDateTime(dateString)
 
   const formatAmount = (amount, currency) => {
     return new Intl.NumberFormat('ru-RU').format(amount) + ' ' + currency

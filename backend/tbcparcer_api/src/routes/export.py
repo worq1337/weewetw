@@ -54,7 +54,7 @@ def export_to_excel():
             tmp_file_path = tmp_file.name
         
         # Генерируем имя файла
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M')
         filename = f"TBCparcer_transactions_{timestamp}.xlsx"
         
         def remove_file(response):
@@ -114,7 +114,7 @@ def export_summary_to_excel():
             tmp_file_path = tmp_file.name
         
         # Генерируем имя файла
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M')
         filename = f"TBCparcer_summary_report_{timestamp}.xlsx"
         
         def remove_file(response):
@@ -175,7 +175,7 @@ def export_to_json():
         # Добавляем метаданные
         export_data = {
             'export_info': {
-                'timestamp': datetime.now().isoformat(),
+                'timestamp': datetime.now().strftime('%Y-%m-%dT%H:%M'),
                 'user_id': telegram_id,
                 'total_transactions': len(transactions_data),
                 'export_type': export_type
@@ -255,7 +255,7 @@ def export_to_csv():
             tmp_file_path = tmp_file.name
         
         # Генерируем имя файла
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M')
         filename = f"TBCparcer_transactions_{timestamp}.csv"
         
         def remove_file(response):

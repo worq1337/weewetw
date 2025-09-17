@@ -3,6 +3,7 @@ import { Settings, GripVertical, Edit3, Check, X, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import ColumnSettings from './ColumnSettings'
 import { apiFetch, DEFAULT_TELEGRAM_ID } from '@/lib/api.js'
+import { formatDateOnly, formatDateTime, formatTimeOnly, getDayIndex } from '@/lib/datetime.js'
 
 // Ключи для сохранения настроек в localStorage
 const STORAGE_KEY_PREFIX = 'tbcparcer_table_settings'
@@ -79,15 +80,6 @@ const HEADER_FALLBACK_CHAR_WIDTH = 9
 const CELL_FALLBACK_CHAR_WIDTH = 8
 const DAY_NAMES = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ']
 const numberFormatter = new Intl.NumberFormat('ru-RU')
-const DATE_FORMATTER = new Intl.DateTimeFormat('ru-RU', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric'
-})
-const TIME_FORMATTER = new Intl.DateTimeFormat('ru-RU', {
-  hour: '2-digit',
-  minute: '2-digit'
-})
 
 const createDefaultSettings = () => ({
   columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
@@ -149,50 +141,23 @@ const formatCellValue = (transaction, column) => {
 
   if (column === 'date_time') {
     const source = rawValue || transaction.date_time
-    if (!source) {
-      return ''
-    }
-
-    const date = new Date(source)
-    if (Number.isNaN(date.valueOf())) {
-      return ''
-    }
-
-    return `${DATE_FORMATTER.format(date)} ${TIME_FORMATTER.format(date)}`
+    return formatDateTime(source)
   }
 
   if (column === 'date') {
     const source = rawValue || transaction.date_time
-    if (!source) {
-      return ''
-    }
-
-    const date = new Date(source)
-    return Number.isNaN(date.valueOf()) ? '' : DATE_FORMATTER.format(date)
+    return formatDateOnly(source)
   }
 
   if (column === 'time') {
     const source = rawValue || transaction.date_time
-    if (!source) {
-      return ''
-    }
-
-    const date = new Date(source)
-    return Number.isNaN(date.valueOf()) ? '' : TIME_FORMATTER.format(date)
+    return formatTimeOnly(source)
   }
 
   if (column === 'day_name') {
     const source = rawValue || transaction.date_time
-    if (!source) {
-      return ''
-    }
-
-    const date = new Date(source)
-    if (Number.isNaN(date.valueOf())) {
-      return ''
-    }
-
-    return DAY_NAMES[date.getDay()] || ''
+    const dayIndex = getDayIndex(source)
+    return dayIndex === null ? '' : (DAY_NAMES[dayIndex] || '')
   }
 
   if (column === 'card_number') {
