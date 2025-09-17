@@ -244,6 +244,27 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
   const tableRef = useRef(null)
   const measurementCanvasRef = useRef(null)
 
+  const persistColumnAlignment = useCallback(async (column, alignment) => {
+    try {
+      const response = await apiFetch(`/api/formatting/columns/${encodeURIComponent(column)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          telegram_id: DEFAULT_TELEGRAM_ID,
+          alignment
+        })
+      })
+
+      if (!response.ok) {
+        console.warn('Не удалось сохранить выравнивание для колонки', column)
+      }
+    } catch (error) {
+      console.warn('Ошибка при сохранении выравнивания:', error)
+    }
+  }, [])
+
   const measureText = useCallback((text, font, fallbackCharWidth) => {
     const normalized = typeof text === 'string' ? text : String(text ?? '')
 
@@ -389,6 +410,12 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
   const resetToDefaults = () => {
     setManuallyResizedColumns(new Set())
 
+    Object.entries(columnSettings).forEach(([column, settings]) => {
+      if (settings?.alignment) {
+        persistColumnAlignment(column, null)
+      }
+    })
+
     const defaultSettings = createDefaultSettings()
 
     applySettings(defaultSettings, { markUserAdjusted: false })
@@ -407,6 +434,59 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     }
     saveSettingsToStorage(settings)
   }, [cellColors, columnOrder, columnSettings, columnWidths, manuallyResizedColumns])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadColumnFormatting = async () => {
+      try {
+        const response = await apiFetch(`/api/formatting/columns?telegram_id=${DEFAULT_TELEGRAM_ID}`)
+        if (!response.ok) {
+          return
+        }
+
+        const data = await response.json()
+        if (cancelled || !data || typeof data !== 'object') {
+          return
+        }
+
+        const columns = data.columns
+        if (!columns || typeof columns !== 'object') {
+          return
+        }
+
+        setColumnSettings((previous) => {
+          let changed = false
+          const next = { ...previous }
+
+          Object.entries(columns).forEach(([column, config]) => {
+            const alignment = config?.alignment
+            if (!alignment) {
+              return
+            }
+
+            const existing = next[column] || {}
+            if (existing.alignment === alignment) {
+              return
+            }
+
+            next[column] = { ...existing, alignment }
+            changed = true
+          })
+
+          return changed ? next : previous
+        })
+      } catch (error) {
+        console.warn('Не удалось загрузить настройки колонок:', error)
+      }
+    }
+
+    loadColumnFormatting()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Обработка редактирования ячейки
   const handleCellEdit = (rowId, column, currentValue) => {
@@ -531,8 +611,11 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   // Обработка настроек колонки
   const handleColumnSettingsChange = (column, settings) => {
+    const previousAlignment = columnSettings[column]?.alignment ?? null
+    const isReset = !settings || (typeof settings === 'object' && Object.keys(settings).length === 0)
+
     setColumnSettings(prev => {
-      if (!settings || (typeof settings === 'object' && Object.keys(settings).length === 0)) {
+      if (isReset) {
         if (!(column in prev)) {
           return prev
         }
@@ -542,11 +625,35 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
         return next
       }
 
+      const nextSettings = {
+        ...(prev[column] || {}),
+        ...settings
+      }
+
+      const current = prev[column]
+      if (current && Object.keys(current).length === Object.keys(nextSettings).length) {
+        const same = Object.entries(nextSettings).every(([key, value]) => current[key] === value)
+        if (same) {
+          return prev
+        }
+      }
+
       return {
         ...prev,
-        [column]: settings
+        [column]: nextSettings
       }
     })
+
+    let nextAlignment = previousAlignment
+    if (isReset) {
+      nextAlignment = null
+    } else if (settings && Object.prototype.hasOwnProperty.call(settings, 'alignment')) {
+      nextAlignment = settings.alignment
+    }
+
+    if (previousAlignment !== nextAlignment) {
+      persistColumnAlignment(column, nextAlignment ?? null)
+    }
   }
 
   // Обработка цвета ячейки

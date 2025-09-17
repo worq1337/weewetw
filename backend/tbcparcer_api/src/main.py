@@ -15,6 +15,7 @@ from src.models.formatting import FormattingSetting, CellColor
 from src.routes.user import user_bp
 from src.routes.transaction import transaction_bp
 from src.routes.operator import operator_bp
+from src.routes.formatting import formatting_bp
 from src.routes.ai_parsing import ai_parsing_bp
 from src.routes.export import export_bp
 from src.routes.trash import trash_bp
@@ -33,6 +34,7 @@ app.register_blueprint(health_bp)
 app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(transaction_bp, url_prefix='/api')
 app.register_blueprint(operator_bp, url_prefix='/api')
+app.register_blueprint(formatting_bp, url_prefix='/api')
 app.register_blueprint(ai_parsing_bp, url_prefix='/api/ai')
 app.register_blueprint(export_bp, url_prefix='/api/export')
 app.register_blueprint(trash_bp, url_prefix='/api')
