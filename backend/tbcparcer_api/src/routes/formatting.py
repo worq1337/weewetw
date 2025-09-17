@@ -1,6 +1,3 @@
-from flask import Blueprint, jsonify, request
-
-from src.models.formatting import FormattingSetting
 from typing import Optional
 
 from flask import Blueprint, jsonify, request
