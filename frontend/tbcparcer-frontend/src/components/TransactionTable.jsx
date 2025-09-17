@@ -83,6 +83,42 @@ const CELL_FALLBACK_CHAR_WIDTH = 8
 const DAY_NAMES = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ']
 const numberFormatter = new Intl.NumberFormat('ru-RU')
 
+let textMeasurementCanvas = null
+
+const getMeasurementContext = () => {
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  if (!textMeasurementCanvas) {
+    textMeasurementCanvas = document.createElement('canvas')
+  }
+
+  return textMeasurementCanvas.getContext('2d')
+}
+
+const measureTextWidth = (text, font, fallbackCharWidth) => {
+  const normalized = typeof text === 'string' ? text : String(text ?? '')
+
+  const context = getMeasurementContext()
+  if (!context) {
+    return normalized.length * fallbackCharWidth
+  }
+
+  context.font = font
+  const metrics = context.measureText(normalized)
+  return metrics.width
+}
+
+const runAfterNextFrame = (callback) => {
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(callback)
+    return
+  }
+
+  setTimeout(callback, 0)
+}
+
 const createDefaultSettings = () => ({
   columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
   columnOrder: [...DEFAULT_COLUMN_ORDER],
@@ -213,17 +249,70 @@ const formatCellValue = (transaction, column) => {
   return rawValue || ''
 }
 
+const calculateAutoColumnWidths = ({
+  columnOrder,
+  transactions,
+  manuallyResizedColumns,
+  includeManuallyAdjusted = false
+}) => {
+  if (!transactions || transactions.length === 0) {
+    return null
+  }
+
+  const calculatedWidths = {}
+
+  columnOrder.forEach((column) => {
+    if (column === 'actions') {
+      return
+    }
+
+    if (!includeManuallyAdjusted && manuallyResizedColumns?.has(column)) {
+      return
+    }
+
+    const headerLabel = COLUMN_LABELS[column] || column
+    const headerWidth = measureTextWidth(headerLabel, HEADER_FONT, HEADER_FALLBACK_CHAR_WIDTH) + HEADER_PADDING
+
+    let maxWidth = headerWidth
+
+    for (const transaction of transactions) {
+      const displayValue = formatCellValue(transaction, column)
+      const width = measureTextWidth(displayValue, CELL_FONT, CELL_FALLBACK_CHAR_WIDTH) + CELL_PADDING
+      if (width > maxWidth) {
+        maxWidth = width
+      }
+    }
+
+    const clampedWidth = Math.min(
+      MAX_COLUMN_WIDTH,
+      Math.max(MIN_COLUMN_WIDTH, Math.ceil(maxWidth))
+    )
+
+    calculatedWidths[column] = clampedWidth
+  })
+
+  return Object.keys(calculatedWidths).length > 0 ? calculatedWidths : null
+}
+
 const TransactionTable = ({ transactions, onTransactionUpdate }) => {
   const initialSettingsRef = useRef(readSettingsFromStorage())
 
+  const storedColumnOrder = initialSettingsRef.current?.columnOrder
+  const initialColumnOrder = storedColumnOrder ? [...storedColumnOrder] : [...DEFAULT_COLUMN_ORDER]
+  const initialManualColumns = new Set(initialSettingsRef.current?.manuallyResizedColumns ?? [])
+  const initialAutoWidths = calculateAutoColumnWidths({
+    columnOrder: initialColumnOrder,
+    transactions,
+    manuallyResizedColumns: initialManualColumns
+  })
+
   const [editingCell, setEditingCell] = useState(null)
   const [editValue, setEditValue] = useState('')
-  const [columnOrder, setColumnOrder] = useState(() => (
-    initialSettingsRef.current?.columnOrder ?? [...DEFAULT_COLUMN_ORDER]
-  ))
+  const [columnOrder, setColumnOrder] = useState(initialColumnOrder)
   const [columnWidths, setColumnWidths] = useState(() => ({
     ...DEFAULT_COLUMN_WIDTHS,
-    ...(initialSettingsRef.current?.columnWidths ?? {})
+    ...(initialSettingsRef.current?.columnWidths ?? {}),
+    ...(initialAutoWidths ?? {})
   }))
   const [columnSettings, setColumnSettings] = useState(() => (
     initialSettingsRef.current?.columnSettings ?? {}
@@ -232,7 +321,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     initialSettingsRef.current?.cellColors ?? {}
   ))
   const [manuallyResizedColumns, setManuallyResizedColumns] = useState(() => (
-    new Set(initialSettingsRef.current?.manuallyResizedColumns ?? [])
+    new Set(initialManualColumns)
   ))
   const [showColumnSettings, setShowColumnSettings] = useState(null)
   const [showColorPicker, setShowColorPicker] = useState(null)
@@ -242,7 +331,6 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
   const [resizeStartWidth, setResizeStartWidth] = useState(0)
 
   const tableRef = useRef(null)
-  const measurementCanvasRef = useRef(null)
   const telegramConfigured = isDefaultTelegramConfigured()
 
   const persistColumnAlignment = useCallback(async (column, alignment) => {
@@ -270,72 +358,23 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     }
   }, [telegramConfigured])
 
-  const measureText = useCallback((text, font, fallbackCharWidth) => {
-    const normalized = typeof text === 'string' ? text : String(text ?? '')
-
-    if (typeof window === 'undefined') {
-      return normalized.length * fallbackCharWidth
-    }
-
-    if (!measurementCanvasRef.current) {
-      measurementCanvasRef.current = document.createElement('canvas')
-    }
-
-    const context = measurementCanvasRef.current.getContext('2d')
-    if (!context) {
-      return normalized.length * fallbackCharWidth
-    }
-
-    context.font = font
-    const metrics = context.measureText(normalized)
-    return metrics.width
-  }, [])
-
   const computeAutoWidths = useCallback(({ includeManuallyAdjusted = false } = {}) => {
-    if (!transactions || transactions.length === 0) {
-      return null
-    }
-
-    const calculatedWidths = {}
-
-    columnOrder.forEach((column) => {
-      if (column === 'actions') {
-        return
-      }
-
-      if (!includeManuallyAdjusted && manuallyResizedColumns.has(column)) {
-        return
-      }
-
-      const headerLabel = COLUMN_LABELS[column] || column
-      const headerWidth = measureText(headerLabel, HEADER_FONT, HEADER_FALLBACK_CHAR_WIDTH) + HEADER_PADDING
-
-      let maxWidth = headerWidth
-
-      for (const transaction of transactions) {
-        const displayValue = formatCellValue(transaction, column)
-        const width = measureText(displayValue, CELL_FONT, CELL_FALLBACK_CHAR_WIDTH) + CELL_PADDING
-        if (width > maxWidth) {
-          maxWidth = width
-        }
-      }
-
-      const clampedWidth = Math.min(
-        MAX_COLUMN_WIDTH,
-        Math.max(MIN_COLUMN_WIDTH, Math.ceil(maxWidth))
-      )
-
-      calculatedWidths[column] = clampedWidth
+    return calculateAutoColumnWidths({
+      columnOrder,
+      transactions,
+      manuallyResizedColumns,
+      includeManuallyAdjusted
     })
-
-    return Object.keys(calculatedWidths).length > 0 ? calculatedWidths : null
-  }, [columnOrder, manuallyResizedColumns, measureText, transactions])
+  }, [columnOrder, manuallyResizedColumns, transactions])
 
   useLayoutEffect(() => {
     const autoWidths = computeAutoWidths()
     if (!autoWidths) {
       return
     }
+
+    const scrollContainer = tableRef.current
+    const previousScrollLeft = scrollContainer?.scrollLeft ?? 0
 
     setColumnWidths((previous) => {
       let changed = false
@@ -348,7 +387,17 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
         }
       })
 
-      return changed ? next : previous
+      if (!changed) {
+        return previous
+      }
+
+      runAfterNextFrame(() => {
+        if (scrollContainer) {
+          scrollContainer.scrollLeft = previousScrollLeft
+        }
+      })
+
+      return next
     })
   }, [computeAutoWidths])
 
@@ -682,6 +731,9 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
     setManuallyResizedColumns(new Set())
 
+    const scrollContainer = tableRef.current
+    const previousScrollLeft = scrollContainer?.scrollLeft ?? 0
+
     setColumnWidths((previous) => {
       let changed = false
       const next = { ...previous }
@@ -693,7 +745,17 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
         }
       })
 
-      return changed ? next : previous
+      if (!changed) {
+        return previous
+      }
+
+      runAfterNextFrame(() => {
+        if (scrollContainer) {
+          scrollContainer.scrollLeft = previousScrollLeft
+        }
+      })
+
+      return next
     })
   }
 
