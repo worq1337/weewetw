@@ -490,10 +490,22 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   // Обработка настроек колонки
   const handleColumnSettingsChange = (column, settings) => {
-    setColumnSettings(prev => ({
-      ...prev,
-      [column]: settings
-    }))
+    setColumnSettings(prev => {
+      if (!settings || (typeof settings === 'object' && Object.keys(settings).length === 0)) {
+        if (!(column in prev)) {
+          return prev
+        }
+
+        const next = { ...prev }
+        delete next[column]
+        return next
+      }
+
+      return {
+        ...prev,
+        [column]: settings
+      }
+    })
   }
 
   // Обработка цвета ячейки

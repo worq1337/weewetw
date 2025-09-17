@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
-import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react'
+import { AlignLeft, AlignCenter, AlignRight, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 
-const ColumnSettings = ({ settings, onSettingsChange, onClose }) => {
+const alignmentLabels = {
+  left: 'По левому краю',
+  center: 'По центру',
+  right: 'По правому краю'
+}
+
+const ColumnSettings = ({ settings = {}, onSettingsChange, onClose }) => {
   const [alignment, setAlignment] = useState(settings.alignment || 'left')
   const dropdownRef = useRef(null)
 
@@ -25,10 +31,23 @@ const ColumnSettings = ({ settings, onSettingsChange, onClose }) => {
 
   const handleAlignmentChange = (newAlignment) => {
     setAlignment(newAlignment)
-    onSettingsChange({
+    const nextSettings = {
       ...settings,
       alignment: newAlignment
-    })
+    }
+    onSettingsChange(nextSettings)
+  }
+
+  const handleResetAlignment = () => {
+    const nextSettings = { ...settings }
+    delete nextSettings.alignment
+    setAlignment('left')
+
+    if (Object.keys(nextSettings).length === 0) {
+      onSettingsChange(null)
+    } else {
+      onSettingsChange(nextSettings)
+    }
   }
 
   const alignmentOptions = [
@@ -43,25 +62,45 @@ const ColumnSettings = ({ settings, onSettingsChange, onClose }) => {
       className="absolute top-full left-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 min-w-48"
     >
       <div className="p-3">
-        <div className="mb-3">
-          <h4 className="text-sm font-medium text-foreground mb-2">
-            Выравнивание текста
-          </h4>
+        <div className="mb-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col">
+              <h4 className="text-sm font-medium text-foreground">
+                Выравнивание текста
+              </h4>
+              <span className="text-xs text-muted-foreground">
+                Текущее: <span className="text-foreground">{alignmentLabels[alignment]}</span>
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs px-2"
+              onClick={handleResetAlignment}
+              disabled={!settings.alignment}
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              Сбросить
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Выбор применяется сразу и сохраняется для этой колонки.
+          </p>
           <div className="grid grid-cols-3 gap-1">
             {alignmentOptions.map((option) => {
               const IconComponent = option.icon
 
               return (
                 <Button
-                key={option.value}
-                variant={alignment === option.value ? "default" : "outline"}
-                size="sm"
-                className="h-8 w-full"
-                onClick={() => handleAlignmentChange(option.value)}
-                title={option.label}
-              >
-                <IconComponent className="h-3 w-3" />
-              </Button>
+                  key={option.value}
+                  variant={alignment === option.value ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-8 w-full"
+                  onClick={() => handleAlignmentChange(option.value)}
+                  title={option.label}
+                >
+                  <IconComponent className="h-3 w-3" />
+                </Button>
               )
             })}
           </div>
