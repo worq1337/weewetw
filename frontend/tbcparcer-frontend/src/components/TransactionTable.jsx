@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react'
 import { Settings, GripVertical, Edit3, Check, X, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button.jsx'
 import ColumnSettings from './ColumnSettings'
@@ -7,32 +7,182 @@ import { apiFetch } from '@/lib/api.js'
 // Ключ для сохранения настроек в localStorage
 const STORAGE_KEY = 'tbcparcer_table_settings'
 
+const COLUMN_LABELS = {
+  receipt_number: 'Номер чека',
+  date_time: 'Дата и время',
+  day_name: 'Д.н.',
+  date: 'Дата',
+  time: 'Время',
+  operator_seller: 'Оператор/Продавец',
+  application: 'Приложение',
+  amount: 'Сумма',
+  balance: 'Остаток',
+  card_number: 'ПК',
+  p2p: 'P2P',
+  transaction_type: 'Тип транзакции',
+  currency: 'Валюта',
+  data_source: 'Источник данных',
+  category: 'Категория',
+  actions: 'Действия'
+}
+
+const OPERATION_TYPE_LABELS = {
+  payment: 'Оплата',
+  refill: 'Пополнение',
+  conversion: 'Конверсия',
+  cancel: 'Отмена'
+}
+
+const DEFAULT_COLUMN_WIDTHS = {
+  receipt_number: 120,
+  date_time: 150,
+  day_name: 60,
+  date: 100,
+  time: 80,
+  operator_seller: 150,
+  application: 150,
+  amount: 120,
+  balance: 120,
+  card_number: 80,
+  p2p: 80,
+  transaction_type: 120,
+  currency: 80,
+  data_source: 120,
+  category: 120,
+  actions: 80
+}
+
+const DEFAULT_COLUMN_ORDER = [
+  'receipt_number', 'date_time', 'day_name', 'date', 'time',
+  'operator_seller', 'application', 'amount', 'balance', 'card_number',
+  'p2p', 'transaction_type', 'currency', 'data_source', 'category', 'actions'
+]
+
+const MIN_COLUMN_WIDTH = 72
+const MAX_COLUMN_WIDTH = 360
+const HEADER_PADDING = 40
+const CELL_PADDING = 28
+const HEADER_FONT = '600 12px Inter, system-ui, sans-serif'
+const CELL_FONT = '12px Inter, system-ui, sans-serif'
+const HEADER_FALLBACK_CHAR_WIDTH = 9
+const CELL_FALLBACK_CHAR_WIDTH = 8
+const DAY_NAMES = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ']
+const numberFormatter = new Intl.NumberFormat('ru-RU')
+
+const formatCellValue = (transaction, column) => {
+  if (!transaction) {
+    return ''
+  }
+
+  const rawValue = transaction[column]
+
+  if (column === 'amount' || column === 'balance') {
+    if (rawValue === null || rawValue === undefined || rawValue === '') {
+      return ''
+    }
+
+    const numericValue = Number(rawValue)
+    if (Number.isNaN(numericValue)) {
+      return ''
+    }
+
+    return numberFormatter.format(numericValue)
+  }
+
+  if (column === 'transaction_type') {
+    return OPERATION_TYPE_LABELS[rawValue] || rawValue || ''
+  }
+
+  if (column === 'date_time') {
+    if (!rawValue) {
+      return ''
+    }
+
+    const date = new Date(rawValue)
+    return Number.isNaN(date.valueOf()) ? '' : date.toLocaleString('ru-RU')
+  }
+
+  if (column === 'date') {
+    const source = rawValue || transaction.date_time
+    if (!source) {
+      return ''
+    }
+
+    const date = new Date(source)
+    return Number.isNaN(date.valueOf()) ? '' : date.toLocaleDateString('ru-RU')
+  }
+
+  if (column === 'time') {
+    const source = rawValue || transaction.date_time
+    if (!source) {
+      return ''
+    }
+
+    const date = new Date(source)
+    return Number.isNaN(date.valueOf())
+      ? ''
+      : date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  if (column === 'day_name') {
+    const source = rawValue || transaction.date_time
+    if (!source) {
+      return ''
+    }
+
+    const date = new Date(source)
+    if (Number.isNaN(date.valueOf())) {
+      return ''
+    }
+
+    return DAY_NAMES[date.getDay()] || ''
+  }
+
+  if (column === 'card_number') {
+    if (!rawValue) {
+      return ''
+    }
+
+    const value = String(rawValue)
+    return value.startsWith('*') ? value : `*${value.slice(-4)}`
+  }
+
+  if (column === 'p2p') {
+    return rawValue ? 'Да' : 'Нет'
+  }
+
+  if (column === 'receipt_number') {
+    return transaction.receipt_number || ''
+  }
+
+  if (column === 'data_source') {
+    return transaction.data_source || 'Telegram Bot'
+  }
+
+  if (column === 'category') {
+    return transaction.category || 'Общие'
+  }
+
+  if (column === 'operator_seller') {
+    return transaction.operator_seller || 'Неизвестно'
+  }
+
+  if (column === 'application') {
+    return transaction.application || 'Неизвестно'
+  }
+
+  if (column === 'actions') {
+    return ''
+  }
+
+  return rawValue || ''
+}
+
 const TransactionTable = ({ transactions, onTransactionUpdate }) => {
   const [editingCell, setEditingCell] = useState(null)
   const [editValue, setEditValue] = useState('')
-  const [columnWidths, setColumnWidths] = useState({
-    receipt_number: 120,
-    date_time: 150,
-    day_name: 60,
-    date: 100,
-    time: 80,
-    operator_seller: 150,
-    application: 150,
-    amount: 120,
-    balance: 120,
-    card_number: 80,
-    p2p: 80,
-    transaction_type: 120,
-    currency: 80,
-    data_source: 120,
-    category: 120,
-    actions: 80
-  })
-  const [columnOrder, setColumnOrder] = useState([
-    'receipt_number', 'date_time', 'day_name', 'date', 'time',
-    'operator_seller', 'application', 'amount', 'balance', 'card_number',
-    'p2p', 'transaction_type', 'currency', 'data_source', 'category', 'actions'
-  ])
+  const [columnWidths, setColumnWidths] = useState({ ...DEFAULT_COLUMN_WIDTHS })
+  const [columnOrder, setColumnOrder] = useState([...DEFAULT_COLUMN_ORDER])
   const [columnSettings, setColumnSettings] = useState({})
   const [cellColors, setCellColors] = useState({})
   const [showColumnSettings, setShowColumnSettings] = useState(null)
@@ -43,32 +193,90 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
   const [resizeStartWidth, setResizeStartWidth] = useState(0)
 
   const tableRef = useRef(null)
+  const measurementCanvasRef = useRef(null)
+  const userAdjustedColumnsRef = useRef(new Set())
 
-  const columnLabels = {
-    receipt_number: 'Номер чека',
-    date_time: 'Дата и время',
-    day_name: 'Д.н.',
-    date: 'Дата',
-    time: 'Время',
-    operator_seller: 'Оператор/Продавец',
-    application: 'Приложение',
-    amount: 'Сумма',
-    balance: 'Остаток',
-    card_number: 'ПК',
-    p2p: 'P2P',
-    transaction_type: 'Тип транзакции',
-    currency: 'Валюта',
-    data_source: 'Источник данных',
-    category: 'Категория',
-    actions: 'Действия'
-  }
+  const measureText = useCallback((text, font, fallbackCharWidth) => {
+    const normalized = typeof text === 'string' ? text : String(text ?? '')
 
-  const operationTypes = {
-    payment: 'Оплата',
-    refill: 'Пополнение',
-    conversion: 'Конверсия',
-    cancel: 'Отмена'
-  }
+    if (typeof window === 'undefined') {
+      return normalized.length * fallbackCharWidth
+    }
+
+    if (!measurementCanvasRef.current) {
+      measurementCanvasRef.current = document.createElement('canvas')
+    }
+
+    const context = measurementCanvasRef.current.getContext('2d')
+    if (!context) {
+      return normalized.length * fallbackCharWidth
+    }
+
+    context.font = font
+    const metrics = context.measureText(normalized)
+    return metrics.width
+  }, [])
+
+  const computeAutoWidths = useCallback(({ includeManuallyAdjusted = false } = {}) => {
+    if (!transactions || transactions.length === 0) {
+      return null
+    }
+
+    const calculatedWidths = {}
+
+    columnOrder.forEach((column) => {
+      if (column === 'actions') {
+        return
+      }
+
+      if (!includeManuallyAdjusted && userAdjustedColumnsRef.current.has(column)) {
+        return
+      }
+
+      const headerLabel = COLUMN_LABELS[column] || column
+      const headerWidth = measureText(headerLabel, HEADER_FONT, HEADER_FALLBACK_CHAR_WIDTH) + HEADER_PADDING
+
+      let maxWidth = headerWidth
+
+      for (const transaction of transactions) {
+        const displayValue = formatCellValue(transaction, column)
+        const width = measureText(displayValue, CELL_FONT, CELL_FALLBACK_CHAR_WIDTH) + CELL_PADDING
+        if (width > maxWidth) {
+          maxWidth = width
+        }
+      }
+
+      const clampedWidth = Math.min(
+        MAX_COLUMN_WIDTH,
+        Math.max(MIN_COLUMN_WIDTH, Math.ceil(maxWidth))
+      )
+
+      calculatedWidths[column] = clampedWidth
+    })
+
+    return Object.keys(calculatedWidths).length > 0 ? calculatedWidths : null
+  }, [columnOrder, measureText, transactions])
+
+  useLayoutEffect(() => {
+    const autoWidths = computeAutoWidths()
+    if (!autoWidths) {
+      return
+    }
+
+    setColumnWidths((previous) => {
+      let changed = false
+      const next = { ...previous }
+
+      Object.entries(autoWidths).forEach(([column, width]) => {
+        if (Math.abs((next[column] ?? 0) - width) > 1) {
+          next[column] = width
+          changed = true
+        }
+      })
+
+      return changed ? next : previous
+    })
+  }, [computeAutoWidths])
 
   // Функции для работы с localStorage
   const saveSettingsToStorage = (settings) => {
@@ -89,17 +297,20 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     }
   }
 
-  const getCurrentSettings = () => ({
-    columnWidths,
-    columnOrder,
-    columnSettings,
-    cellColors,
-    version: '1.0' // Версия для совместимости при будущих изменениях
-  })
-
-  const applySettings = (settings) => {
+  const applySettings = (settings, { markUserAdjusted = true } = {}) => {
     if (settings.columnWidths) {
-      setColumnWidths(settings.columnWidths)
+      setColumnWidths(prev => ({
+        ...prev,
+        ...settings.columnWidths
+      }))
+
+      if (markUserAdjusted) {
+        const updatedSet = new Set(userAdjustedColumnsRef.current)
+        Object.keys(settings.columnWidths).forEach(column => {
+          updatedSet.add(column)
+        })
+        userAdjustedColumnsRef.current = updatedSet
+      }
     }
     if (settings.columnOrder) {
       setColumnOrder(settings.columnOrder)
@@ -114,35 +325,17 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   // Сброс настроек к значениям по умолчанию
   const resetToDefaults = () => {
+    userAdjustedColumnsRef.current.clear()
+
     const defaultSettings = {
-      columnWidths: {
-        receipt_number: 120,
-        date_time: 150,
-        day_name: 60,
-        date: 100,
-        time: 80,
-        operator_seller: 150,
-        application: 150,
-        amount: 120,
-        balance: 120,
-        card_number: 80,
-        p2p: 80,
-        transaction_type: 120,
-        currency: 80,
-        data_source: 120,
-        category: 120
-      },
-      columnOrder: [
-        'receipt_number', 'date_time', 'day_name', 'date', 'time',
-        'operator_seller', 'application', 'amount', 'balance', 'card_number',
-        'p2p', 'transaction_type', 'currency', 'data_source', 'category'
-      ],
+      columnWidths: { ...DEFAULT_COLUMN_WIDTHS },
+      columnOrder: [...DEFAULT_COLUMN_ORDER],
       columnSettings: {},
       cellColors: {},
       version: '1.0'
     }
-    
-    applySettings(defaultSettings)
+
+    applySettings(defaultSettings, { markUserAdjusted: false })
     saveSettingsToStorage(defaultSettings)
   }
 
@@ -156,7 +349,13 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   // Автоматическое сохранение при изменении настроек
   useEffect(() => {
-    const settings = getCurrentSettings()
+    const settings = {
+      columnWidths,
+      columnOrder,
+      columnSettings,
+      cellColors,
+      version: '1.0'
+    }
     saveSettingsToStorage(settings)
   }, [columnWidths, columnOrder, columnSettings, cellColors])
 
@@ -214,6 +413,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
   // Обработка изменения размера колонок
   const handleResizeStart = (e, column) => {
     e.preventDefault()
+    userAdjustedColumnsRef.current.add(column)
     setResizingColumn(column)
     setResizeStartX(e.clientX)
     setResizeStartWidth(columnWidths[column])
@@ -223,7 +423,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
     const handleMouseMove = (e) => {
       if (resizingColumn) {
         const diff = e.clientX - resizeStartX
-        const newWidth = Math.max(50, resizeStartWidth + diff)
+        const newWidth = Math.max(MIN_COLUMN_WIDTH, resizeStartWidth + diff)
         setColumnWidths(prev => ({
           ...prev,
           [resizingColumn]: newWidth
@@ -290,82 +490,26 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
 
   // Функция авто-подстройки колонок
   const autoFitColumns = () => {
-    if (!tableRef.current || !transactions.length) return
+    const calculated = computeAutoWidths({ includeManuallyAdjusted: true })
+    if (!calculated) {
+      return
+    }
 
-    const newWidths = { ...columnWidths }
-    
-    columnOrder.forEach(column => {
-      if (column === 'actions') return // Пропускаем колонку действий
-      
-      let maxWidth = 80 // Минимальная ширина
-      
-      // Измеряем ширину заголовка
-      const headerText = columnLabels[column] || column
-      const headerWidth = headerText.length * 8 + 40 // Приблизительный расчет
-      maxWidth = Math.max(maxWidth, headerWidth)
-      
-      // Измеряем ширину содержимого ячеек
-      transactions.forEach(transaction => {
-        const value = formatValue(transaction[column], column)
-        const cellWidth = String(value).length * 8 + 20 // Приблизительный расчет
-        maxWidth = Math.max(maxWidth, cellWidth)
+    userAdjustedColumnsRef.current.clear()
+
+    setColumnWidths((previous) => {
+      let changed = false
+      const next = { ...previous }
+
+      Object.entries(calculated).forEach(([column, width]) => {
+        if (Math.abs((next[column] ?? 0) - width) > 1) {
+          next[column] = width
+          changed = true
+        }
       })
-      
-      // Ограничиваем максимальную ширину
-      newWidths[column] = Math.min(maxWidth, 300)
-    })
-    
-    setColumnWidths(newWidths)
-  }
 
-  const formatValue = (value, column) => {
-    if (column === 'amount' || column === 'balance') {
-      return new Intl.NumberFormat('ru-RU').format(value)
-    }
-    if (column === 'transaction_type') {
-      return operationTypes[value] || value
-    }
-    if (column === 'date_time') {
-      return new Date(value).toLocaleString('ru-RU')
-    }
-    if (column === 'date') {
-      return new Date(value).toLocaleDateString('ru-RU')
-    }
-    if (column === 'time') {
-      return new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-    }
-    if (column === 'day_name') {
-      const days = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ']
-      const date = new Date(value)
-      return days[date.getDay()]
-    }
-    if (column === 'card_number') {
-      // Показываем только последние 4 цифры карты
-      return value ? `*${value.toString().slice(-4)}` : ''
-    }
-    if (column === 'p2p') {
-      // Логика для определения P2P операции
-      return value ? 'Да' : 'Нет'
-    }
-    if (column === 'receipt_number') {
-      return value || `CHK${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
-    }
-    if (column === 'data_source') {
-      return value || 'Telegram Bot'
-    }
-    if (column === 'category') {
-      return value || 'Общие'
-    }
-    if (column === 'operator_seller') {
-      return value || 'Неизвестно'
-    }
-    if (column === 'application') {
-      return value || 'Неизвестно'
-    }
-    if (column === 'actions') {
-      return '' // Для колонки действий не нужно форматирование
-    }
-    return value || ''
+      return changed ? next : previous
+    })
   }
 
   const getCellAlignment = (column) => {
@@ -407,7 +551,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
                     <div className="flex items-center space-x-2 flex-1 min-w-0">
                       <GripVertical className="h-3 w-3 text-muted-foreground column-drag-handle" />
                       <span className="text-xs font-medium text-foreground truncate">
-                        {columnLabels[column]}
+                        {COLUMN_LABELS[column]}
                       </span>
                     </div>
                     
@@ -511,7 +655,7 @@ const TransactionTable = ({ transactions, onTransactionUpdate }) => {
                         onClick={() => handleCellEdit(transaction.id, column, transaction[column])}
                       >
                         <span className="text-xs text-foreground truncate w-full">
-                          {formatValue(transaction[column], column)}
+                          {formatCellValue(transaction, column)}
                         </span>
                         <Edit3 className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0" />
                       </div>
